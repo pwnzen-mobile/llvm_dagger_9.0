@@ -65,4 +65,5 @@ add_llvm_library(LLVMMC
   )
 
 add_subdirectory(MCParser)
+add_subdirectory(MCAnalysis)
 add_subdirectory(MCDisassembler)

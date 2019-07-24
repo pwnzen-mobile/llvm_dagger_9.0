@@ -225,6 +225,27 @@ public:
   /// Set the attribute list for this Function.
   void setAttributes(AttributeList Attrs) { AttributeSets = Attrs; }
 
+   void setDoesNotAlias(unsigned n) {
+    addAttribute(n, Attribute::NoAlias);
+  }
+
+  /// @brief Determine if the parameter can be captured.
+  /// @param n The parameter to check. 1 is the first parameter, 0 is the return
+  bool doesNotCapture(unsigned n) const {
+    return AttributeSets.hasAttribute(n, Attribute::NoCapture);
+  }
+  void setDoesNotCapture(unsigned n) {
+    addAttribute(n, Attribute::NoCapture);
+  }
+
+  bool doesNotAccessMemory(unsigned n) const {
+    return AttributeSets.hasAttribute(n, Attribute::ReadNone);
+  }
+  void setDoesNotAccessMemory(unsigned n) {
+    addAttribute(n, Attribute::ReadNone);
+  }
+
+
   /// Add function attributes to this function.
   void addFnAttr(Attribute::AttrKind Kind) {
     addAttribute(AttributeList::FunctionIndex, Kind);

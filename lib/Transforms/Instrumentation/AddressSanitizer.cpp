@@ -1919,12 +1919,7 @@ StringRef ModuleAddressSanitizer::getGlobalMetadataSection() const {
   case Triple::COFF:  return ".ASAN$GL";
   case Triple::ELF:   return "asan_globals";
   case Triple::MachO: return "__DATA,__asan_globals,regular";
-  case Triple::Wasm:
-  case Triple::XCOFF:
-    report_fatal_error(
-        "ModuleAddressSanitizer not implemented for object file format.");
-  case Triple::UnknownObjectFormat:
-    break;
+  default: break;
   }
   llvm_unreachable("unsupported object format");
 }

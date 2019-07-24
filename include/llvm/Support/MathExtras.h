@@ -559,18 +559,13 @@ inline unsigned Log2_64_Ceil(uint64_t Value) {
 }
 
 /// Return the greatest common divisor of the values using Euclid's algorithm.
-template <typename T>
-inline T greatestCommonDivisor(T A, T B) {
+inline uint64_t GreatestCommonDivisor64(uint64_t A, uint64_t B) {
   while (B) {
-    T Tmp = B;
+    uint64_t T = B;
     B = A % B;
-    A = Tmp;
+    A = T;
   }
   return A;
-}
-
-inline uint64_t GreatestCommonDivisor64(uint64_t A, uint64_t B) {
-  return greatestCommonDivisor<uint64_t>(A, B);
 }
 
 /// This function takes a 64-bit integer and returns the bit equivalent double.

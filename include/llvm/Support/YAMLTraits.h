@@ -303,8 +303,9 @@ template <typename T> struct PolymorphicTraits {
 };
 
 // Only used for better diagnostics of missing traits
-template <typename T>
-struct MissingTrait;
+template <typename T> struct MissingTrait{
+
+};
 
 // Test if ScalarEnumerationTraits<T> is defined on type T.
 template <class T>
@@ -742,6 +743,29 @@ struct unvalidatedMappingTraits
           bool, has_MappingTraits<T, Context>::value &&
                     !has_MappingValidateTraits<T, Context>::value> {};
 
+/// YAML I/O does conversion based on types. But often native data types
+/// are just a typedef of built in intergral types (e.g. int).  But the C++
+/// type matching system sees through the typedef and all the typedefed types
+/// look like a built in type. This will cause the generic YAML I/O conversion
+/// to be used. To provide better control over the YAML conversion, you can
+/// use this macro instead of typedef.  It will create a class with one field
+/// and automatic conversion operators to and from the base type.
+/// Based on BOOST_STRONG_TYPEDEF  
+//  调整了一下这部分代码的位置
+#define LLVM_YAML_STRONG_TYPEDEF(_base, _type)                                 \
+    struct _type {                                                             \
+        _type() = default;                                                     \
+        _type(const _base v) : value(v) {}                                     \
+        _type(const _type &v) = default;                                       \
+        _type &operator=(const _type &rhs) = default;                          \
+        _type &operator=(const _base &rhs) { value = rhs; return *this; }      \
+        operator const _base & () const { return value; }                      \
+        bool operator==(const _type &rhs) const { return value == rhs.value; } \
+        bool operator==(const _base &rhs) const { return value == rhs; }       \
+        bool operator<(const _type &rhs) const { return value < rhs.value; }   \
+        _base value;                                                           \
+        using BaseType = _base;                                                \
+    };
 // Base class for Input and Output.
 class IO {
 public:
@@ -1119,6 +1143,7 @@ yamlize(IO &io, T &Val, bool, EmptyContext &Ctx) {
 template <typename T>
 typename std::enable_if<missingTraits<T, EmptyContext>::value, void>::type
 yamlize(IO &io, T &Val, bool, EmptyContext &Ctx) {
+  //sizeof(MissingTrait<int>);
   char missing_yaml_trait_for_type[sizeof(MissingTrait<T>)];
 }
 
@@ -1620,33 +1645,11 @@ private:
   bool NeedBitValueComma = false;
   bool NeedFlowSequenceComma = false;
   bool EnumerationMatchFound = false;
+  bool NeedsNewLine = false;
   bool WriteDefaultValues = false;
-  StringRef Padding;
-  StringRef PaddingBeforeContainer;
 };
 
-/// YAML I/O does conversion based on types. But often native data types
-/// are just a typedef of built in intergral types (e.g. int).  But the C++
-/// type matching system sees through the typedef and all the typedefed types
-/// look like a built in type. This will cause the generic YAML I/O conversion
-/// to be used. To provide better control over the YAML conversion, you can
-/// use this macro instead of typedef.  It will create a class with one field
-/// and automatic conversion operators to and from the base type.
-/// Based on BOOST_STRONG_TYPEDEF
-#define LLVM_YAML_STRONG_TYPEDEF(_base, _type)                                 \
-    struct _type {                                                             \
-        _type() = default;                                                     \
-        _type(const _base v) : value(v) {}                                     \
-        _type(const _type &v) = default;                                       \
-        _type &operator=(const _type &rhs) = default;                          \
-        _type &operator=(const _base &rhs) { value = rhs; return *this; }      \
-        operator const _base & () const { return value; }                      \
-        bool operator==(const _type &rhs) const { return value == rhs.value; } \
-        bool operator==(const _base &rhs) const { return value == rhs; }       \
-        bool operator<(const _type &rhs) const { return value < rhs.value; }   \
-        _base value;                                                           \
-        using BaseType = _base;                                                \
-    };
+
 
 ///
 /// Use these types instead of uintXX_t in any mapping to have

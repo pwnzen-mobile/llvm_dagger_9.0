@@ -119,11 +119,11 @@ bool AMDGPUOpenCLEnqueuedBlockLowering::runOnModule(Module &M) {
       auto T = ArrayType::get(Type::getInt64Ty(C), 2);
       auto *GV = new GlobalVariable(
           M, T,
-          /*isConstant=*/false, GlobalValue::ExternalLinkage,
+          /*IsConstant=*/false, GlobalValue::ExternalLinkage,
           /*Initializer=*/Constant::getNullValue(T), RuntimeHandle,
           /*InsertBefore=*/nullptr, GlobalValue::NotThreadLocal,
           AMDGPUAS::GLOBAL_ADDRESS,
-          /*isExternallyInitialized=*/false);
+          /*IsExternallyInitialized=*/false);
       LLVM_DEBUG(dbgs() << "runtime handle created: " << *GV << '\n');
 
       for (auto U : F.users()) {

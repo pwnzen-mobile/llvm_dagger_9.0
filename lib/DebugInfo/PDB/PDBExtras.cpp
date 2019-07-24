@@ -320,17 +320,14 @@ raw_ostream &llvm::pdb::operator<<(raw_ostream &OS,
   return OS;
 }
 
-raw_ostream &llvm::pdb::dumpPDBSourceCompression(raw_ostream &OS,
-                                                 uint32_t Compression) {
+raw_ostream &llvm::pdb::operator<<(raw_ostream &OS,
+                                   const PDB_SourceCompression &Compression) {
   switch (Compression) {
     CASE_OUTPUT_ENUM_CLASS_NAME(PDB_SourceCompression, None, OS)
     CASE_OUTPUT_ENUM_CLASS_NAME(PDB_SourceCompression, Huffman, OS)
     CASE_OUTPUT_ENUM_CLASS_NAME(PDB_SourceCompression, LZ, OS)
     CASE_OUTPUT_ENUM_CLASS_STR(PDB_SourceCompression, RunLengthEncoded, "RLE",
                                OS)
-    CASE_OUTPUT_ENUM_CLASS_NAME(PDB_SourceCompression, DotNet, OS)
-  default:
-    OS << "Unknown (" << Compression << ")";
   }
   return OS;
 }

@@ -954,33 +954,13 @@ std::string TreePredicateFn::getPredCode() const {
   }
 
   if (isLoad() || isStore() || isAtomic()) {
-    if (ListInit *AddressSpaces = getAddressSpaces()) {
-      Code += "unsigned AddrSpace = cast<MemSDNode>(N)->getAddressSpace();\n"
-        " if (";
-
-      bool First = true;
-      for (Init *Val : AddressSpaces->getValues()) {
-        if (First)
-          First = false;
-        else
-          Code += " && ";
-
-        IntInit *IntVal = dyn_cast<IntInit>(Val);
-        if (!IntVal) {
-          PrintFatalError(getOrigPatFragRecord()->getRecord()->getLoc(),
-                          "AddressSpaces element must be integer");
-        }
-
-        Code += "AddrSpace != " + utostr(IntVal->getValue());
-      }
-
-      Code += ")\nreturn false;\n";
-    }
+    StringRef SDNodeName =
+        isLoad() ? "LoadSDNode" : isStore() ? "StoreSDNode" : "AtomicSDNode";
 
     Record *MemoryVT = getMemoryVT();
 
     if (MemoryVT)
-      Code += ("if (cast<MemSDNode>(N)->getMemoryVT() != MVT::" +
+      Code += ("if (cast<" + SDNodeName + ">(N)->getMemoryVT() != MVT::" +
                MemoryVT->getName() + ") return false;\n")
                   .str();
   }
@@ -1169,14 +1149,6 @@ Record *TreePredicateFn::getMemoryVT() const {
     return nullptr;
   return R->getValueAsDef("MemoryVT");
 }
-
-ListInit *TreePredicateFn::getAddressSpaces() const {
-  Record *R = getOrigPatFragRecord()->getRecord();
-  if (R->isValueUnset("AddressSpaces"))
-    return nullptr;
-  return R->getValueAsListInit("AddressSpaces");
-}
-
 Record *TreePredicateFn::getScalarMemoryVT() const {
   Record *R = getOrigPatFragRecord()->getRecord();
   if (R->isValueUnset("ScalarMemoryVT"))
@@ -2807,7 +2779,7 @@ TreePatternNodePtr TreePattern::ParseTreePattern(Init *TheInit,
     // chain.
     if (Int.IS.RetVTs.empty())
       Operator = getDAGPatterns().get_intrinsic_void_sdnode();
-    else if (Int.ModRef != CodeGenIntrinsic::NoMem || Int.hasSideEffects)
+    else if (Int.ModRef != CodeGenIntrinsic::NoMem)
       // Has side-effects, requires chain.
       Operator = getDAGPatterns().get_intrinsic_w_chain_sdnode();
     else // Otherwise, no chain.
@@ -3268,11 +3240,13 @@ void CodeGenDAGPatterns::FindPatternInputsAndOutputs(
     MapVector<std::string, TreePatternNodePtr, std::map<std::string, unsigned>>
         &InstResults,
     std::vector<Record *> &InstImpResults) {
-
+  //pat->getOperator == set
+  //
   // The instruction pattern still has unresolved fragments.  For *named*
   // nodes we must resolve those here.  This may not result in multiple
   // alternatives.
   if (!Pat->getName().empty()) {
+    //errs()<<"pat name : "<<Pat->getName()<<"\n";
     TreePattern SrcPattern(I.getRecord(), Pat, true, *this);
     SrcPattern.InlinePatternFragments();
     SrcPattern.InferAllTypes();
@@ -3576,9 +3550,16 @@ void CodeGenDAGPatterns::parseInstructionPattern(
     CodeGenInstruction &CGI, ListInit *Pat, DAGInstMap &DAGInsts) {
 
   assert(!DAGInsts.count(CGI.TheDef) && "Instruction already parsed!");
-
+  //errs()<<"at start of  InstrunctionPattern"<<"\n";
   // Parse the instruction.
   TreePattern I(CGI.TheDef, Pat, true, *this);
+  TreePattern *new_pattern = new TreePattern(CGI.TheDef, Pat, true, *this);
+  //add inline fragment of pattern?
+  I.InlinePatternFragments();
+  // add by -death
+  if(CGI.AsmString.find("adcs	")!=std::string::npos){
+    errs()<<"trepattern  :"<<I.getNumTrees()<<"\n";
+  }
 
   // InstInputs - Keep track of all of the inputs of the instruction, along
   // with the record they are declared as.
@@ -3597,11 +3578,22 @@ void CodeGenDAGPatterns::parseInstructionPattern(
   for (unsigned j = 0, e = I.getNumTrees(); j != e; ++j) {
     TypesString.clear();
     TreePatternNodePtr Pat = I.getTree(j);
+    if(CGI.AsmString.find("adcs	")!=std::string::npos){
+      errs()<<"pat operator name : "<< Pat->getOperator()->getName()<<"\n";
+      errs()<<"pat name :"<<Pat->getName()<<"\n";
+      errs()<<"pat children num : "<<Pat->getNumChildren()<<"\n";
+      for(unsigned tmp_i=0; tmp_i <Pat->getNumChildren();++tmp_i){
+          errs()<<"Pat child "<<tmp_i<<" Operator "<<Pat->getChild(tmp_i)->getName()<<"\n";
+      }
+    }
+    //errs()<<"pat operator name : "<< Pat->getOperator()->getName()<<"\n";
     if (Pat->getNumTypes() != 0) {
       raw_svector_ostream OS(TypesString);
       for (unsigned k = 0, ke = Pat->getNumTypes(); k != ke; ++k) {
         if (k > 0)
           OS << ", ";
+        errs()<<"pat num type is not null\n";
+        //errs()<<"parseinstructionPattern type : "<<Pat->getExtType(k).getName()<<"\n";
         Pat->getExtType(k).writeToStream(OS);
       }
       I.error("Top-level forms in instruction pattern should have"
@@ -3609,11 +3601,26 @@ void CodeGenDAGPatterns::parseInstructionPattern(
                OS.str());
     }
 
-    // Find inputs and outputs, and verify the structure of the uses/defs.
+      // Find inputs and outputs, and verify the structure of the uses/defs.
     FindPatternInputsAndOutputs(I, Pat, InstInputs, InstResults,
                                 InstImpResults);
   }
 
+  if(CGI.AsmString.find("adcs	")!=std::string::npos){
+    for(std::map<std::string, TreePatternNodePtr>::iterator tmp_it=InstInputs.begin(),
+     E=InstInputs.end();tmp_it!=E;tmp_it++){
+      errs()<<"the inst inputs : "<<tmp_it->first<<"\n";
+      errs()<<"treePatternNode"<<tmp_it->second->getName()<<"\n";
+    }
+    for(auto tmp_it=InstResults.begin(),
+      E=InstResults.end();tmp_it!=E;tmp_it++){
+        errs()<<"InstResults str : "<<tmp_it->first<<"\n";
+       // errs()<<"InstResults Treenode : "<<tmp_it->second->getOperator()->getName()<<"\n";
+        
+     }
+     errs()<<"I tree size : "<<I.getNumTrees()<<"\n";
+     errs()<<"I child tree : "<<I.getTree(0)->getOperator()->getName()<<"\n";
+  }
   // Now that we have inputs and outputs of the pattern, inspect the operands
   // list for the instruction.  This determines the order that operands are
   // added to the machine instruction the node corresponds to.
@@ -3734,6 +3741,9 @@ void CodeGenDAGPatterns::parseInstructionPattern(
   TreePatternNodePtr Pattern = I.getTree(0);
   TreePatternNodePtr SrcPattern;
   if (Pattern->getOperator()->getName() == "set") {
+    if(CGI.AsmString.find("adcs	")!=std::string::npos){
+       errs()<<" the pattern is a set and src pattern was setted as child\n";
+    }
     SrcPattern = Pattern->getChild(Pattern->getNumChildren()-1)->clone();
   } else{
     // Not a set (store or something?)
@@ -3743,10 +3753,35 @@ void CodeGenDAGPatterns::parseInstructionPattern(
   // Create and insert the instruction.
   // FIXME: InstImpResults should not be part of DAGInstruction.
   Record *R = I.getRecord();
-  DAGInsts.emplace(std::piecewise_construct, std::forward_as_tuple(R),
-                   std::forward_as_tuple(Results, Operands, InstImpResults,
-                                         SrcPattern, ResultPattern));
+  DAGInstruction tmp_DAGinstruction(Results,Operands,InstImpResults,SrcPattern,ResultPattern);
+  tmp_DAGinstruction.setTreePattern(new_pattern);
 
+  if(CGI.AsmString.find("adcs	")!=std::string::npos){
+      
+  errs()<<"++++++++\n";
+  errs()<<"start to insert Pattern\n";
+  errs()<<"pattern size : I num tree "<<tmp_DAGinstruction.getPattern()
+  ->getNumTrees()<<"\n";
+  errs()<<"R is "<<R->getName()<<"\n";
+  errs()<<"++++++++\n";
+  }
+  DAGInsts.emplace(std::piecewise_construct, std::forward_as_tuple(R),
+  //                 std::forward_as_tuple(Results, Operands, InstImpResults,
+  //                                       SrcPattern, ResultPattern));
+                    std::forward_as_tuple(tmp_DAGinstruction));
+
+  if(CGI.AsmString.find("adcs	")!=std::string::npos){
+      errs()<<" ==================\n";
+      errs()<<"result : \n";
+      for(auto tmp_it : Results){
+        errs()<<"result record : "<<tmp_it->getName()<<"\n";
+      } 
+      errs()<<"Operands: \n";
+      for(auto tmp_it : Operands){
+        errs()<<"operands : "<<tmp_it->getName()<<"\n";
+      }
+
+  }
   LLVM_DEBUG(I.dump());
 }
 

@@ -213,8 +213,8 @@ private:
   bool translateStore(const User &U, MachineIRBuilder &MIRBuilder);
 
   /// Translate an LLVM string intrinsic (memcpy, memset, ...).
-  bool translateMemFunc(const CallInst &CI, MachineIRBuilder &MIRBuilder,
-                        Intrinsic::ID ID);
+  bool translateMemfunc(const CallInst &CI, MachineIRBuilder &MIRBuilder,
+                        unsigned ID);
 
   void getStackGuard(Register DstReg, MachineIRBuilder &MIRBuilder);
 

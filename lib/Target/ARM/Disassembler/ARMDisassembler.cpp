@@ -314,7 +314,7 @@ static DecodeStatus DecodeVLD3DupInstruction(MCInst &Inst, unsigned Val,
                                uint64_t Address, const void *Decoder);
 static DecodeStatus DecodeVLD4DupInstruction(MCInst &Inst, unsigned Val,
                                uint64_t Address, const void *Decoder);
-static DecodeStatus DecodeVMOVModImmInstruction(MCInst &Inst,unsigned Val,
+static DecodeStatus DecodeNEONModImmInstruction(MCInst &Inst,unsigned Val,
                                uint64_t Address, const void *Decoder);
 static DecodeStatus DecodeMVEModImmInstruction(MCInst &Inst,unsigned Val,
                                uint64_t Address, const void *Decoder);
@@ -3445,7 +3445,7 @@ static DecodeStatus DecodeVLD4DupInstruction(MCInst &Inst, unsigned Insn,
 }
 
 static DecodeStatus
-DecodeVMOVModImmInstruction(MCInst &Inst, unsigned Insn,
+DecodeNEONModImmInstruction(MCInst &Inst, unsigned Insn,
                             uint64_t Address, const void *Decoder) {
   DecodeStatus S = MCDisassembler::Success;
 
@@ -5679,7 +5679,7 @@ static DecodeStatus DecodeVCVTD(MCInst &Inst, unsigned Insn,
         }
       }
     }
-    return DecodeVMOVModImmInstruction(Inst, Insn, Address, Decoder);
+    return DecodeNEONModImmInstruction(Inst, Insn, Address, Decoder);
   }
 
   if (!(imm & 0x20)) return MCDisassembler::Fail;
@@ -5738,7 +5738,7 @@ static DecodeStatus DecodeVCVTQ(MCInst &Inst, unsigned Insn,
         }
       }
     }
-    return DecodeVMOVModImmInstruction(Inst, Insn, Address, Decoder);
+    return DecodeNEONModImmInstruction(Inst, Insn, Address, Decoder);
   }
 
   if (!(imm & 0x20)) return MCDisassembler::Fail;
@@ -6502,13 +6502,6 @@ static DecodeStatus DecodeMVEOverlappingLongShift(
   // Rm, the amount to shift by
   if (!Check(S, DecoderGPRRegisterClass(Inst, Rm, Address, Decoder)))
     return MCDisassembler::Fail;
-
-  if (Inst.getOpcode() == ARM::MVE_SQRSHRL ||
-      Inst.getOpcode() == ARM::MVE_UQRSHLL) {
-    unsigned Saturate = fieldFromInstruction(Insn, 7, 1);
-    // Saturate, the bit position for saturation
-    Inst.addOperand(MCOperand::createImm(Saturate));
-  }
 
   return S;
 }

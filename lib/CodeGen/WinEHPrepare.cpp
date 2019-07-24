@@ -1224,14 +1224,14 @@ void WinEHPrepare::replaceUseWithLoad(Value *V, Use &U, AllocaInst *&SpillSlot,
     if (!Load)
       Load = new LoadInst(V->getType(), SpillSlot,
                           Twine(V->getName(), ".wineh.reload"),
-                          /*isVolatile=*/false, IncomingBlock->getTerminator());
+                          /*Volatile=*/false, IncomingBlock->getTerminator());
 
     U.set(Load);
   } else {
     // Reload right before the old use.
     auto *Load = new LoadInst(V->getType(), SpillSlot,
                               Twine(V->getName(), ".wineh.reload"),
-                              /*isVolatile=*/false, UsingInst);
+                              /*Volatile=*/false, UsingInst);
     U.set(Load);
   }
 }

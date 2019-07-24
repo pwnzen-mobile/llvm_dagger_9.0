@@ -858,7 +858,7 @@ BitcodeReader::BitcodeReader(BitstreamCursor Stream, StringRef Strtab,
                              StringRef ProducerIdentification,
                              LLVMContext &Context)
     : BitcodeReaderBase(std::move(Stream), Strtab), Context(Context),
-      ValueList(Context, Stream.SizeInBytes()) {
+      ValueList(Context) {
   this->ProducerIdentification = ProducerIdentification;
 }
 
@@ -1280,9 +1280,6 @@ static uint64_t getRawAttributeMask(Attribute::AttrKind Val) {
     return 1ULL << 62;
   case Attribute::NoFree:
     return 1ULL << 63;
-  case Attribute::NoSync:
-    llvm_unreachable("nosync attribute not supported in raw format");
-    break;
   case Attribute::Dereferenceable:
     llvm_unreachable("dereferenceable attribute not supported in raw format");
     break;
@@ -1296,9 +1293,6 @@ static uint64_t getRawAttributeMask(Attribute::AttrKind Val) {
   case Attribute::AllocSize:
     llvm_unreachable("allocsize not supported in raw format");
     break;
-  case Attribute::SanitizeMemTag:
-    llvm_unreachable("sanitize_memtag attribute not supported in raw format");
-    break;
   }
   llvm_unreachable("Unsupported attribute type");
 }
@@ -1308,12 +1302,10 @@ static void addRawAttributeValue(AttrBuilder &B, uint64_t Val) {
 
   for (Attribute::AttrKind I = Attribute::None; I != Attribute::EndAttrKinds;
        I = Attribute::AttrKind(I + 1)) {
-    if (I == Attribute::SanitizeMemTag ||
-        I == Attribute::Dereferenceable ||
+    if (I == Attribute::Dereferenceable ||
         I == Attribute::DereferenceableOrNull ||
         I == Attribute::ArgMemOnly ||
-        I == Attribute::AllocSize ||
-        I == Attribute::NoSync)
+        I == Attribute::AllocSize)
       continue;
     if (uint64_t A = (Val & getRawAttributeMask(I))) {
       if (I == Attribute::Alignment)
@@ -1474,8 +1466,6 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::NoRedZone;
   case bitc::ATTR_KIND_NO_RETURN:
     return Attribute::NoReturn;
-  case bitc::ATTR_KIND_NOSYNC:
-    return Attribute::NoSync;
   case bitc::ATTR_KIND_NOCF_CHECK:
     return Attribute::NoCfCheck;
   case bitc::ATTR_KIND_NO_UNWIND:
@@ -1538,8 +1528,6 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::ZExt;
   case bitc::ATTR_KIND_IMMARG:
     return Attribute::ImmArg;
-  case bitc::ATTR_KIND_SANITIZE_MEMTAG:
-    return Attribute::SanitizeMemTag;
   }
 }
 
@@ -4176,10 +4164,6 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
       if (getValueTypePair(Record, OpNum, NextValueNo, LHS) ||
           popValue(Record, OpNum, NextValueNo, LHS->getType(), RHS))
         return error("Invalid record");
-
-      if (OpNum >= Record.size())
-        return error(
-            "Invalid record: operand number exceeded available operands");
 
       unsigned PredVal = Record[OpNum];
       bool IsFP = LHS->getType()->isFPOrFPVectorTy();

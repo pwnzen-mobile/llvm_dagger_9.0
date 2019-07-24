@@ -1,20 +1,18 @@
 set(LLVM_TARGET_DEFINITIONS AArch64.td)
 
-tablegen(LLVM AArch64GenAsmMatcher.inc -gen-asm-matcher)
-tablegen(LLVM AArch64GenAsmWriter.inc -gen-asm-writer)
-tablegen(LLVM AArch64GenAsmWriter1.inc -gen-asm-writer -asmwriternum=1)
-tablegen(LLVM AArch64GenCallingConv.inc -gen-callingconv)
-tablegen(LLVM AArch64GenDAGISel.inc -gen-dag-isel)
-tablegen(LLVM AArch64GenDisassemblerTables.inc -gen-disassembler)
-tablegen(LLVM AArch64GenFastISel.inc -gen-fast-isel)
-tablegen(LLVM AArch64GenGlobalISel.inc -gen-global-isel)
+tablegen(LLVM AArch64GenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM AArch64GenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM AArch64GenMCCodeEmitter.inc -gen-emitter)
 tablegen(LLVM AArch64GenMCPseudoLowering.inc -gen-pseudo-lowering)
-tablegen(LLVM AArch64GenRegisterBank.inc -gen-register-bank)
-tablegen(LLVM AArch64GenRegisterInfo.inc -gen-register-info)
+tablegen(LLVM AArch64GenAsmWriter.inc -gen-asm-writer)
+tablegen(LLVM AArch64GenAsmWriter1.inc -gen-asm-writer -asmwriternum=1)
+tablegen(LLVM AArch64GenAsmMatcher.inc -gen-asm-matcher)
+tablegen(LLVM AArch64GenDAGISel.inc -gen-dag-isel)
+tablegen(LLVM AArch64GenFastISel.inc -gen-fast-isel)
+tablegen(LLVM AArch64GenCallingConv.inc -gen-callingconv)
 tablegen(LLVM AArch64GenSubtargetInfo.inc -gen-subtarget)
-tablegen(LLVM AArch64GenSystemOperands.inc -gen-searchable-tables)
+tablegen(LLVM AArch64GenDisassemblerTables.inc -gen-disassembler)
+tablegen(LLVM AArch64GenSema.inc -gen-semantics)
 tablegen(LLVM AArch64GenExegesis.inc -gen-exegesis)
 
 add_public_tablegen_target(AArch64CommonTableGen)
@@ -55,7 +53,6 @@ add_llvm_target(AArch64CodeGen
   AArch64RegisterInfo.cpp
   AArch64SelectionDAGInfo.cpp
   AArch64SpeculationHardening.cpp
-  AArch64StackTagging.cpp
   AArch64StorePairSuppress.cpp
   AArch64Subtarget.cpp
   AArch64TargetMachine.cpp
@@ -67,8 +64,10 @@ add_llvm_target(AArch64CodeGen
   intrinsics_gen
 )
 
+add_subdirectory(TargetInfo)
 add_subdirectory(AsmParser)
 add_subdirectory(Disassembler)
 add_subdirectory(MCTargetDesc)
-add_subdirectory(TargetInfo)
 add_subdirectory(Utils)
+add_subdirectory(InstPrinter)
+add_subdirectory(DC)

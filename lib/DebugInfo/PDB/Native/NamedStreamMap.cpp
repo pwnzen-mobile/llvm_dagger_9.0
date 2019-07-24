@@ -46,7 +46,8 @@ uint32_t NamedStreamMapTraits::lookupKeyToStorageKey(StringRef S) {
   return NS->appendStringData(S);
 }
 
-NamedStreamMap::NamedStreamMap() : HashTraits(*this), OffsetIndexMap(1) {}
+NamedStreamMap::NamedStreamMap()
+    : HashTraits(*this), OffsetIndexMap(1, HashTraits) {}
 
 Error NamedStreamMap::load(BinaryStreamReader &Stream) {
   uint32_t StringBufferSize;
@@ -98,7 +99,7 @@ uint32_t NamedStreamMap::hashString(uint32_t Offset) const {
 }
 
 bool NamedStreamMap::get(StringRef Stream, uint32_t &StreamNo) const {
-  auto Iter = OffsetIndexMap.find_as(Stream, HashTraits);
+  auto Iter = OffsetIndexMap.find_as(Stream);
   if (Iter == OffsetIndexMap.end())
     return false;
   StreamNo = (*Iter).second;
@@ -122,5 +123,5 @@ uint32_t NamedStreamMap::appendStringData(StringRef S) {
 }
 
 void NamedStreamMap::set(StringRef Stream, uint32_t StreamNo) {
-  OffsetIndexMap.set_as(Stream, support::ulittle32_t(StreamNo), HashTraits);
+  OffsetIndexMap.set_as(Stream, support::ulittle32_t(StreamNo));
 }

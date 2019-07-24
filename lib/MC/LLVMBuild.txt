@@ -15,7 +15,7 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-subdirectories = MCDisassembler MCParser
+subdirectories = MCDisassembler MCParser MCAnalysis
 
 [component_0]
 type = Library

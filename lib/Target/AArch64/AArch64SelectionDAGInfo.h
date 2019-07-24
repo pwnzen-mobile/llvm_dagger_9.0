@@ -23,10 +23,6 @@ public:
                                   SDValue Chain, SDValue Dst, SDValue Src,
                                   SDValue Size, unsigned Align, bool isVolatile,
                                   MachinePointerInfo DstPtrInfo) const override;
-  SDValue EmitTargetCodeForSetTag(SelectionDAG &DAG, const SDLoc &dl,
-                                  SDValue Chain, SDValue Op1, SDValue Op2,
-                                  MachinePointerInfo DstPtrInfo,
-                                  bool ZeroData) const override;
   bool generateFMAsInMachineCombiner(CodeGenOpt::Level OptLevel) const override;
 };
 }

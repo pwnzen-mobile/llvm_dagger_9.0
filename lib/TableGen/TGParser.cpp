@@ -469,7 +469,10 @@ bool TGParser::addDefOne(std::unique_ptr<Record> Rec) {
     }
     Defset->Elements.push_back(I);
   }
-
+  Record *Class = Records.getClass("Operand");
+  if(Rec->isSubClassOf(Class)){
+   // errs()<<"this rec is operand : "<<Rec->getName()<<"\n";
+  }
   Records.addDef(std::move(Rec));
   return false;
 }
@@ -2822,7 +2825,13 @@ bool TGParser::ParseClass() {
 
   if (Lex.getCode() != tgtok::Id)
     return TokError("expected class name after 'class' keyword");
-
+    if(Lex.getCurStrVal().find("SDNodeEquiv")!=std::string::npos){
+       // errs()<<"start to parse class : "<<Lex.getCurStrVal()<<"\n";
+    }
+    if(Lex.getCurStrVal().find("operand")!=std::string::npos){
+        //errs()<<"start to parse record"<<Lex.getCurStrVal()<<"\n";
+    }
+//  
   Record *CurRec = Records.getClass(Lex.getCurStrVal());
   if (CurRec) {
     // If the body was previously defined, this is an error.
@@ -2837,7 +2846,16 @@ bool TGParser::ParseClass() {
         llvm::make_unique<Record>(Lex.getCurStrVal(), Lex.getLoc(), Records,
                                   /*Class=*/true);
     CurRec = NewRec.get();
+    if(NewRec->getName().find("ADDSanonymous")!=std::string::npos){
+     // errs()<<" start to parse class"<<NewRec->getName()<<"\n";
+    }
+     if(NewRec->getName().find("Operand")!=std::string::npos){
+     // errs()<<" start to parse class"<<NewRec->getName()<<"\n";
+    }
     Records.addClass(std::move(NewRec));
+    if(Records.getClass("Operand")){
+      //errs()<<"get operand" <<"\n";
+    }
   }
   Lex.Lex(); // eat the name.
 

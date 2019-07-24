@@ -36,6 +36,9 @@
 namespace llvm {
 
 class AsmPrinter;
+class DataLayout;
+class DCInstrSema;
+class DCRegisterSema;
 class MCAsmBackend;
 class MCAsmInfo;
 class MCAsmParser;
@@ -47,6 +50,7 @@ class MCInstrAnalysis;
 class MCInstrInfo;
 class MCObjectWriter;
 class MCRegisterInfo;
+class MCObjectSymbolizer;
 class MCRelocationInfo;
 class MCStreamer;
 class MCSubtargetInfo;
@@ -59,6 +63,9 @@ class raw_pwrite_stream;
 class TargetMachine;
 class TargetOptions;
 
+namespace object {
+class ObjectFile;
+}
 MCStreamer *createNullStreamer(MCContext &Ctx);
 // Takes ownership of \p TAB and \p CE.
 
@@ -112,6 +119,10 @@ MCSymbolizer *createMCSymbolizer(const Triple &TT, LLVMOpInfoCallback GetOpInfo,
                                  LLVMSymbolLookupCallback SymbolLookUp,
                                  void *DisInfo, MCContext *Ctx,
                                  std::unique_ptr<MCRelocationInfo> &&RelInfo);
+
+MCObjectSymbolizer *createMCObjectSymbolizer(MCContext &Ctx, const object::ObjectFile &Obj,
+                         std::unique_ptr<MCRelocationInfo> &&RelInfo);
+
 
 /// Target - Wrapper for Target specific information.
 ///
@@ -194,6 +205,33 @@ public:
       const Triple &TT, LLVMOpInfoCallback GetOpInfo,
       LLVMSymbolLookupCallback SymbolLookUp, void *DisInfo, MCContext *Ctx,
       std::unique_ptr<MCRelocationInfo> &&RelInfo);
+
+  using DCRegisterSemaCtorTy = DCRegisterSema *(*)(StringRef TT,
+                                                  const MCRegisterInfo &MRI,
+                                                  const MCInstrInfo &MII,
+                                                  const DataLayout &DL);
+
+  using DCInstrSemaCtorTy = DCInstrSema *(*)(StringRef TT,
+                                            DCRegisterSema &DRS,
+                                            const MCRegisterInfo &MRI,
+                                            const MCInstrInfo &MII);
+
+  using MCObjectSymbolizerCtorTy = MCObjectSymbolizer *(*)(
+      MCContext &Ctx, const object::ObjectFile &Obj,
+      std::unique_ptr<MCRelocationInfo> &&RelInfo);
+/*
+        typedef DCRegisterSema *(*DCRegisterSemaCtorTy)(StringRef TT,
+                                                  const MCRegisterInfo &MRI,
+                                                  const MCInstrInfo &MII,
+                                                  const DataLayout &DL);
+  typedef DCInstrSema *(*DCInstrSemaCtorTy)(StringRef TT,
+                                            DCRegisterSema &DRS,
+                                            const MCRegisterInfo &MRI,
+                                            const MCInstrInfo &MII);
+  typedef MCObjectSymbolizer *(*MCObjectSymbolizerCtorTy)(
+      MCContext &Ctx, const object::ObjectFile &Obj,
+      std::unique_ptr<MCRelocationInfo> &&RelInfo);
+*/
 
 private:
   /// Next - The next registered target in the linked list, maintained by the
@@ -289,6 +327,19 @@ private:
   /// MCSymbolizerCtorFn - Construction function for this target's
   /// MCSymbolizer, if registered (default = llvm::createMCSymbolizer)
   MCSymbolizerCtorTy MCSymbolizerCtorFn = nullptr;
+
+    /// DCInstrSemaCtorFn - Construction function for this target's
+  /// DCInstrSema, if registered.
+  DCInstrSemaCtorTy DCInstrSemaCtorFn = nullptr;
+
+  /// DCRegisterSemaCtorFn - Construction function for this target's
+  /// DCRegisterSema, if registered.
+  DCRegisterSemaCtorTy DCRegisterSemaCtorFn = nullptr;
+
+  /// MCObjectSymbolizerCtorFn - Construction function for this target's
+  /// MCObjectSymbolizer, if registered
+  /// (default = llvm::createMCObjectSymbolizer)
+  MCObjectSymbolizerCtorTy MCObjectSymbolizerCtorFn = nullptr;
 
 public:
   Target() = default;
@@ -510,8 +561,8 @@ public:
                                std::move(Emitter), RelaxAll);
       break;
     case Triple::XCOFF:
-      S = createXCOFFStreamer(Ctx, std::move(TAB), std::move(OW),
-                              std::move(Emitter), RelaxAll);
+        S = createXCOFFStreamer(Ctx, std::move(TAB), std::move(OW),
+                                std::move(Emitter), RelaxAll);
       break;
     }
     if (ObjectTargetStreamerCtorFn)
@@ -587,6 +638,46 @@ public:
         MCSymbolizerCtorFn ? MCSymbolizerCtorFn : llvm::createMCSymbolizer;
     return Fn(Triple(TT), GetOpInfo, SymbolLookUp, DisInfo, Ctx,
               std::move(RelInfo));
+  }
+
+
+  /// createDCRegisterSema - Create a target specific DCRegisterSema.
+  ///
+  /// \param TT The target triple.
+  DCRegisterSema *
+  createDCRegisterSema(StringRef TT,
+                       const MCRegisterInfo &MRI,
+                       const MCInstrInfo &MII,
+                       const DataLayout &DL) const {
+    if (DCRegisterSemaCtorFn){
+      errs()<<"DCRegisterSemaCtorFn";
+      return DCRegisterSemaCtorFn(TT, MRI, MII, DL);
+    }
+      
+    return nullptr;
+  }
+
+  /// createDCInstrSema - Create a target specific DCInstrSema.
+  ///
+  /// \param TT The target triple.
+  DCInstrSema *
+  createDCInstrSema(StringRef TT,
+                    DCRegisterSema &DRS,
+                    const MCRegisterInfo &MRI,
+                    const MCInstrInfo &MII) const {
+    if (DCInstrSemaCtorFn)
+      return DCInstrSemaCtorFn(TT, DRS, MRI, MII);
+    return nullptr;
+  }
+
+  /// Create a target specific MCObjectSymbolizer.
+  MCObjectSymbolizer *createMCObjectSymbolizer(
+      MCContext &Ctx, const object::ObjectFile &Obj,
+      std::unique_ptr<MCRelocationInfo> &&RelInfo) const {
+    MCObjectSymbolizerCtorTy Fn = MCObjectSymbolizerCtorFn
+                                      ? MCObjectSymbolizerCtorFn
+                                      : llvm::createMCObjectSymbolizer;
+    return Fn(Ctx, Obj, std::move(RelInfo));
   }
 
   /// @}
@@ -901,6 +992,47 @@ struct TargetRegistry {
   /// @param Fn - A function to construct an MCSymbolizer for the target.
   static void RegisterMCSymbolizer(Target &T, Target::MCSymbolizerCtorTy Fn) {
     T.MCSymbolizerCtorFn = Fn;
+  }
+
+  /// RegisterDCRegisterSema - Register an DCRegisterSema
+  /// implementation for the given target.
+  ///
+  /// Clients are responsible for ensuring that registration doesn't occur
+  /// while another thread is attempting to access the registry. Typically
+  /// this is done by initializing all targets at program startup.
+  ///
+  /// @param T - The target being registered.
+  /// @param Fn - A function to construct a DCRegisterSema for the target.
+  static void RegisterDCRegisterSema(Target &T,
+                                     Target::DCRegisterSemaCtorTy Fn) {
+    T.DCRegisterSemaCtorFn = Fn;
+  }
+
+  /// RegisterDCInstrSema - Register an DCInstrSema
+  /// implementation for the given target.
+  ///
+  /// Clients are responsible for ensuring that registration doesn't occur
+  /// while another thread is attempting to access the registry. Typically
+  /// this is done by initializing all targets at program startup.
+  ///
+  /// @param T - The target being registered.
+  /// @param Fn - A function to construct a DCInstrSema for the target.
+  static void RegisterDCInstrSema(Target &T, Target::DCInstrSemaCtorTy Fn) {
+    T.DCInstrSemaCtorFn = Fn;
+  }
+
+  /// RegisterMCObjectSymbolizer - Register an MCObjectSymbolizer
+  /// implementation for the given target.
+  ///
+  /// Clients are responsible for ensuring that registration doesn't occur
+  /// while another thread is attempting to access the registry. Typically
+  /// this is done by initializing all targets at program startup.
+  ///
+  /// @param T - The target being registered.
+  /// @param Fn - A function to construct a MCObjectSymbolizer for the target.
+  static void RegisterMCObjectSymbolizer(Target &T,
+                                         Target::MCObjectSymbolizerCtorTy Fn) {
+    T.MCObjectSymbolizerCtorFn = Fn;
   }
 
   /// @}

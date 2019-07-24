@@ -333,11 +333,15 @@ DbiStream::createIndexedStreamForHeaderType(PDBFile *Pdb,
 
   uint32_t StreamNum = getDebugStreamIndex(Type);
 
-  // This means there is no such stream.
+  // This means there is no such stream
   if (StreamNum == kInvalidStreamIndex)
     return nullptr;
 
-  return Pdb->safelyCreateIndexedStream(StreamNum);
+  if (StreamNum >= Pdb->getNumStreams())
+    return make_error<RawError>(raw_error_code::no_stream);
+
+  return MappedBlockStream::createIndexedStream(
+      Pdb->getMsfLayout(), Pdb->getMsfBuffer(), StreamNum, Pdb->getAllocator());
 }
 
 BinarySubstreamRef DbiStream::getSectionContributionData() const {

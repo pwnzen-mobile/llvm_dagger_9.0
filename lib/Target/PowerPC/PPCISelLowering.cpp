@@ -2233,25 +2233,6 @@ bool llvm::isIntS16Immediate(SDValue Op, int16_t &Imm) {
   return isIntS16Immediate(Op.getNode(), Imm);
 }
 
-
-/// SelectAddressEVXRegReg - Given the specified address, check to see if it can
-/// be represented as an indexed [r+r] operation.
-bool PPCTargetLowering::SelectAddressEVXRegReg(SDValue N, SDValue &Base,
-                                               SDValue &Index,
-                                               SelectionDAG &DAG) const {
-  for (SDNode::use_iterator UI = N->use_begin(), E = N->use_end();
-      UI != E; ++UI) {
-    if (MemSDNode *Memop = dyn_cast<MemSDNode>(*UI)) {
-      if (Memop->getMemoryVT() == MVT::f64) {
-          Base = N.getOperand(0);
-          Index = N.getOperand(1);
-          return true;
-      }
-    }
-  }
-  return false;
-}
-
 /// SelectAddressRegReg - Given the specified addressed, check to see if it
 /// can be represented as an indexed [r+r] operation.  Returns false if it
 /// can be more efficiently represented as [r+imm]. If \p EncodingAlignment is
@@ -2263,10 +2244,6 @@ bool PPCTargetLowering::SelectAddressRegReg(SDValue N, SDValue &Base,
                                             unsigned EncodingAlignment) const {
   int16_t imm = 0;
   if (N.getOpcode() == ISD::ADD) {
-    // Is there any SPE load/store (f64), which can't handle 16bit offset?
-    // SPE load/store can only handle 8-bit offsets.
-    if (hasSPE() && SelectAddressEVXRegReg(N, Base, Index, DAG))
-        return true;
     if (isIntS16Immediate(N.getOperand(1), imm) &&
         (!EncodingAlignment || !(imm % EncodingAlignment)))
       return false; // r+i
@@ -14336,7 +14313,7 @@ bool PPCTargetLowering::isAccessedAsGotIndirect(SDValue GA) const {
   CodeModel::Model CModel = getTargetMachine().getCodeModel();
   // If it is small or large code model, module locals are accessed
   // indirectly by loading their address from .toc/.got. The difference
-  // is that for large code model we have ADDIStocHA8 + LDtocL and for
+  // is that for large code model we have ADDISTocHa + LDtocL and for
   // small code model we simply have LDtoc.
   if (CModel == CodeModel::Small || CModel == CodeModel::Large)
     return true;

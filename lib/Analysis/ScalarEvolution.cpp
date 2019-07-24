@@ -4991,7 +4991,7 @@ const SCEV *ScalarEvolution::createSimpleAffineAddRec(PHINode *PN,
   // overflow.
   if (auto *BEInst = dyn_cast<Instruction>(BEValueV))
     if (isLoopInvariant(Accum, L) && isAddRecNeverPoison(BEInst, L))
-      (void)getAddRecExpr(getAddExpr(StartVal, Accum, Flags), Accum, L, Flags);
+      (void)getAddRecExpr(getAddExpr(StartVal, Accum), Accum, L, Flags);
 
   return PHISCEV;
 }
@@ -10708,10 +10708,13 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
     IsSigned ? APIntOps::smax(getSignedRangeMin(RHS), Limit)
              : APIntOps::umax(getUnsignedRangeMin(RHS), Limit);
 
-  const SCEV *MaxBECount = isa<SCEVConstant>(BECount)
-                               ? BECount
-                               : computeBECount(getConstant(MaxStart - MinEnd),
-                                                getConstant(MinStride), false);
+
+  const SCEV *MaxBECount = getCouldNotCompute();
+  if (isa<SCEVConstant>(BECount))
+    MaxBECount = BECount;
+  else
+    MaxBECount = computeBECount(getConstant(MaxStart - MinEnd),
+                                getConstant(MinStride), false);
 
   if (isa<SCEVCouldNotCompute>(MaxBECount))
     MaxBECount = BECount;

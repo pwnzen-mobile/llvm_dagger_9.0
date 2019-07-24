@@ -352,10 +352,9 @@ def extload_glue : PatFrag<(ops node:$ptr), (load_glue node:$ptr)> {
   let IsAnyExtLoad = 1;
 }
 
-def sextload_glue : PatFrag<(ops node:$ptr), (unindexedload_glue node:$ptr)> {
-  let IsLoad = 1;
-  let IsSignExtLoad = 1;
-}
+def sextload_glue : PatFrag<(ops node:$ptr), (unindexedload_glue node:$ptr), [{
+  return cast<LoadSDNode>(N)->getExtensionType() == ISD::SEXTLOAD;
+}]>;
 
 def zextload_glue : PatFrag<(ops node:$ptr), (unindexedload_glue node:$ptr)> {
   let IsLoad = 1;
@@ -426,34 +425,29 @@ def atomic_store_glue : PatFrag<(ops node:$ptr, node:$val),
 }
 
 def unindexedstore_glue : PatFrag<(ops node:$val, node:$ptr),
-                                   (AMDGPUst_glue node:$val, node:$ptr)> {
-  let IsStore = 1;
-  let IsUnindexed = 1;
-}
+                                   (AMDGPUst_glue node:$val, node:$ptr), [{
+  return cast<StoreSDNode>(N)->getAddressingMode() == ISD::UNINDEXED;
+}]>;
 
 def store_glue : PatFrag<(ops node:$val, node:$ptr),
-                         (unindexedstore_glue node:$val, node:$ptr)> {
-  let IsStore = 1;
-  let IsTruncStore = 0;
-}
+                      (unindexedstore_glue node:$val, node:$ptr), [{
+  return !cast<StoreSDNode>(N)->isTruncatingStore();
+}]>;
 
 def truncstore_glue : PatFrag<(ops node:$val, node:$ptr),
-  (unindexedstore_glue node:$val, node:$ptr)> {
-  let IsStore = 1;
-  let IsTruncStore = 1;
-}
+  (unindexedstore_glue node:$val, node:$ptr), [{
+  return cast<StoreSDNode>(N)->isTruncatingStore();
+}]>;
 
 def truncstorei8_glue : PatFrag<(ops node:$val, node:$ptr),
-                           (truncstore_glue node:$val, node:$ptr)> {
-  let IsStore = 1;
-  let MemoryVT = i8;
-}
+                           (truncstore_glue node:$val, node:$ptr), [{
+  return cast<StoreSDNode>(N)->getMemoryVT() == MVT::i8;
+}]>;
 
 def truncstorei16_glue : PatFrag<(ops node:$val, node:$ptr),
-                           (truncstore_glue node:$val, node:$ptr)> {
-  let IsStore = 1;
-  let MemoryVT = i16;
-}
+                           (truncstore_glue node:$val, node:$ptr), [{
+  return cast<StoreSDNode>(N)->getMemoryVT() == MVT::i16;
+}]>;
 
 def store_glue_align8 : Aligned8Bytes <
   (ops node:$value, node:$ptr), (store_glue node:$value, node:$ptr)
@@ -628,12 +622,8 @@ class bitextract_imm<int bitnum> : SDNodeXForm<imm, [{
   return CurDAG->getTargetConstant(Bit, SDLoc(N), MVT::i1);
 }]>;
 
-def SIMM16bit : ImmLeaf <i32,
-  [{return isInt<16>(Imm);}]
->;
-
-def UIMM16bit : ImmLeaf <i32,
-  [{return isUInt<16>(Imm); }]
+def SIMM16bit : PatLeaf <(imm),
+  [{return isInt<16>(N->getSExtValue());}]
 >;
 
 class InlineImm <ValueType vt> : PatLeaf <(vt imm), [{
@@ -1146,8 +1136,6 @@ def VOP3Mods  : ComplexPattern<untyped, 2, "SelectVOP3Mods">;
 def VOP3NoMods : ComplexPattern<untyped, 1, "SelectVOP3NoMods">;
 // VOP3Mods, but the input source is known to never be NaN.
 def VOP3Mods_nnan : ComplexPattern<fAny, 2, "SelectVOP3Mods_NNaN">;
-// VOP3Mods, but only allowed for f32 operands.
-def VOP3Mods_f32 : ComplexPattern<fAny, 2, "SelectVOP3Mods_f32">;
 
 def VOP3OMods : ComplexPattern<untyped, 3, "SelectVOP3OMods">;
 
@@ -2184,13 +2172,14 @@ def VOP_I32_V2I16_V2I16_I32 : VOPProfile <[i32, v2i16, v2i16, i32]>;
 
 def VOP_V4F32_F32_F32_V4F32       : VOPProfile <[v4f32,  f32,   f32,   v4f32]>;
 def VOP_V16F32_F32_F32_V16F32     : VOPProfile <[v16f32, f32,   f32,   v16f32]>;
-def VOP_V32F32_F32_F32_V32F32     : VOPProfile <[v32f32, f32,   f32,   v32f32]>;
+// TODO: define v32f32
+def VOP_V32F32_F32_F32_V32F32     : VOPProfile <[v32i32, f32,   f32,   v32i32]>;
 def VOP_V4F32_V4F16_V4F16_V4F32   : VOPProfile <[v4f32,  v4f16, v4f16, v4f32]>;
 def VOP_V16F32_V4F16_V4F16_V16F32 : VOPProfile <[v16f32, v4f16, v4f16, v16f32]>;
-def VOP_V32F32_V4F16_V4F16_V32F32 : VOPProfile <[v32f32, v4f16, v4f16, v32f32]>;
+def VOP_V32F32_V4F16_V4F16_V32F32 : VOPProfile <[v32i32, v4f16, v4f16, v32i32]>;
 def VOP_V4F32_V2I16_V2I16_V4F32   : VOPProfile <[v4f32,  v2i16, v2i16, v4f32]>;
 def VOP_V16F32_V2I16_V2I16_V16F32 : VOPProfile <[v16f32, v2i16, v2i16, v16f32]>;
-def VOP_V32F32_V2I16_V2I16_V32F32 : VOPProfile <[v32f32, v2i16, v2i16, v32f32]>;
+def VOP_V32F32_V2I16_V2I16_V32F32 : VOPProfile <[v32i32, v2i16, v2i16, v32i32]>;
 def VOP_V4I32_I32_I32_V4I32       : VOPProfile <[v4i32,  i32,   i32,   v4i32]>;
 def VOP_V16I32_I32_I32_V16I32     : VOPProfile <[v16i32, i32,   i32,   v16i32]>;
 def VOP_V32I32_I32_I32_V32I32     : VOPProfile <[v32i32, i32,   i32,   v32i32]>;

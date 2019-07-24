@@ -1493,7 +1493,6 @@ void Verifier::visitModuleFlagCGProfileEntry(const MDOperand &MDO) {
 static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
   switch (Kind) {
   case Attribute::NoReturn:
-  case Attribute::NoSync:
   case Attribute::WillReturn:
   case Attribute::NoCfCheck:
   case Attribute::NoUnwind:
@@ -1516,7 +1515,6 @@ static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
   case Attribute::ReturnsTwice:
   case Attribute::SanitizeAddress:
   case Attribute::SanitizeHWAddress:
-  case Attribute::SanitizeMemTag:
   case Attribute::SanitizeThread:
   case Attribute::SanitizeMemory:
   case Attribute::MinSize:
@@ -3983,9 +3981,9 @@ void Verifier::verifyDominatesUse(Instruction &I, unsigned i) {
 void Verifier::visitDereferenceableMetadata(Instruction& I, MDNode* MD) {
   Assert(I.getType()->isPointerTy(), "dereferenceable, dereferenceable_or_null "
          "apply only to pointer types", &I);
-  Assert((isa<LoadInst>(I) || isa<IntToPtrInst>(I)),
+  Assert(isa<LoadInst>(I),
          "dereferenceable, dereferenceable_or_null apply only to load"
-         " and inttoptr instructions, use attributes for calls or invokes", &I);
+         " instructions, use attributes for calls or invokes", &I);
   Assert(MD->getNumOperands() == 1, "dereferenceable, dereferenceable_or_null "
          "take one operand!", &I);
   ConstantInt *CI = mdconst::dyn_extract<ConstantInt>(MD->getOperand(0));

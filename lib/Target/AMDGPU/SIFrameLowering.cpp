@@ -311,8 +311,7 @@ unsigned SIFrameLowering::getReservedPrivateSegmentBufferReg(
 }
 
 // Shift down registers reserved for the scratch wave offset.
-std::pair<unsigned, bool>
-SIFrameLowering::getReservedPrivateSegmentWaveByteOffsetReg(
+unsigned SIFrameLowering::getReservedPrivateSegmentWaveByteOffsetReg(
     const GCNSubtarget &ST, const SIInstrInfo *TII, const SIRegisterInfo *TRI,
     SIMachineFunctionInfo *MFI, MachineFunction &MF) const {
   MachineRegisterInfo &MRI = MF.getRegInfo();
@@ -323,17 +322,17 @@ SIFrameLowering::getReservedPrivateSegmentWaveByteOffsetReg(
   // No replacement necessary.
   if (ScratchWaveOffsetReg == AMDGPU::NoRegister ||
       (!hasFP(MF) && !MRI.isPhysRegUsed(ScratchWaveOffsetReg))) {
-    return std::make_pair(AMDGPU::NoRegister, false);
+    return AMDGPU::NoRegister;
   }
 
   if (ST.hasSGPRInitBug())
-    return std::make_pair(ScratchWaveOffsetReg, false);
+    return ScratchWaveOffsetReg;
 
   unsigned NumPreloaded = MFI->getNumPreloadedSGPRs();
 
   ArrayRef<MCPhysReg> AllSGPRs = getAllSGPRs(ST, MF);
   if (NumPreloaded > AllSGPRs.size())
-    return std::make_pair(ScratchWaveOffsetReg, false);
+    return ScratchWaveOffsetReg;
 
   AllSGPRs = AllSGPRs.slice(NumPreloaded);
 
@@ -354,11 +353,10 @@ SIFrameLowering::getReservedPrivateSegmentWaveByteOffsetReg(
   unsigned ReservedRegCount = 13;
 
   if (AllSGPRs.size() < ReservedRegCount)
-    return std::make_pair(ScratchWaveOffsetReg, false);
+    return ScratchWaveOffsetReg;
 
   bool HandledScratchWaveOffsetReg =
     ScratchWaveOffsetReg != TRI->reservedPrivateSegmentWaveByteOffsetReg(MF);
-  bool FPAdjusted = false;
 
   for (MCPhysReg Reg : AllSGPRs.drop_back(ReservedRegCount)) {
     // Pick the first unallocated SGPR. Be careful not to pick an alias of the
@@ -376,13 +374,12 @@ SIFrameLowering::getReservedPrivateSegmentWaveByteOffsetReg(
         MFI->setScratchWaveOffsetReg(Reg);
         MFI->setFrameOffsetReg(Reg);
         ScratchWaveOffsetReg = Reg;
-        FPAdjusted = true;
         break;
       }
     }
   }
 
-  return std::make_pair(ScratchWaveOffsetReg, FPAdjusted);
+  return ScratchWaveOffsetReg;
 }
 
 void SIFrameLowering::emitEntryFunctionPrologue(MachineFunction &MF,
@@ -418,9 +415,7 @@ void SIFrameLowering::emitEntryFunctionPrologue(MachineFunction &MF,
   unsigned ScratchRsrcReg
     = getReservedPrivateSegmentBufferReg(ST, TII, TRI, MFI, MF);
 
-  unsigned ScratchWaveOffsetReg;
-  bool FPAdjusted;
-  std::tie(ScratchWaveOffsetReg, FPAdjusted) =
+  unsigned ScratchWaveOffsetReg =
       getReservedPrivateSegmentWaveByteOffsetReg(ST, TII, TRI, MFI, MF);
 
   // We need to insert initialization of the scratch resource descriptor.
@@ -458,7 +453,7 @@ void SIFrameLowering::emitEntryFunctionPrologue(MachineFunction &MF,
     if (&OtherBB == &MBB)
       continue;
 
-    if (OffsetRegUsed || FPAdjusted)
+    if (OffsetRegUsed)
       OtherBB.addLiveIn(ScratchWaveOffsetReg);
 
     if (ResourceRegUsed)
@@ -918,6 +913,7 @@ static bool allStackObjectsAreDead(const MachineFrameInfo &MFI) {
   return true;
 }
 
+
 #ifndef NDEBUG
 static bool allSGPRSpillsAreDead(const MachineFrameInfo &MFI,
                                  Optional<int> FramePointerSaveIndex) {
@@ -951,7 +947,6 @@ void SIFrameLowering::processFunctionBeforeFrameFinalized(
   const SIRegisterInfo *TRI = ST.getRegisterInfo();
   SIMachineFunctionInfo *FuncInfo = MF.getInfo<SIMachineFunctionInfo>();
 
-  FuncInfo->removeDeadFrameIndices(MFI);
   assert(allSGPRSpillsAreDead(MFI, None) &&
          "SGPR spill should have been removed in SILowerSGPRSpills");
 
@@ -980,10 +975,8 @@ void SIFrameLowering::determineCalleeSaves(MachineFunction &MF,
                                            BitVector &SavedVGPRs,
                                            RegScavenger *RS) const {
   TargetFrameLowering::determineCalleeSaves(MF, SavedVGPRs, RS);
-  SIMachineFunctionInfo *MFI = MF.getInfo<SIMachineFunctionInfo>();
-  if (MFI->isEntryFunction())
-    return;
 
+  SIMachineFunctionInfo *MFI = MF.getInfo<SIMachineFunctionInfo>();
   const MachineFrameInfo &FrameInfo = MF.getFrameInfo();
   const GCNSubtarget &ST = MF.getSubtarget<GCNSubtarget>();
   const SIRegisterInfo *TRI = ST.getRegisterInfo();
@@ -1056,8 +1049,6 @@ void SIFrameLowering::determineCalleeSavesSGPR(MachineFunction &MF,
                                                RegScavenger *RS) const {
   TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
   const SIMachineFunctionInfo *MFI = MF.getInfo<SIMachineFunctionInfo>();
-  if (MFI->isEntryFunction())
-    return;
 
   const GCNSubtarget &ST = MF.getSubtarget<GCNSubtarget>();
   const SIRegisterInfo *TRI = ST.getRegisterInfo();

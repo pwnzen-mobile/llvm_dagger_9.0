@@ -702,17 +702,15 @@ unsigned getUmask() {
   return Mask;
 }
 
-std::error_code setPermissions(const Twine &Path, perms Permissions) {
+std::error_code setPermissions(const Twine &Path, perms Permissions,
+                               bool RespectUmask) {
   SmallString<128> PathStorage;
   StringRef P = Path.toNullTerminatedStringRef(PathStorage);
 
-  if (::chmod(P.begin(), Permissions))
-    return std::error_code(errno, std::generic_category());
-  return std::error_code();
-}
+  if (RespectUmask)
+    Permissions = static_cast<perms>(Permissions & ~getUmask());
 
-std::error_code setPermissions(int FD, perms Permissions) {
-  if (::fchmod(FD, Permissions))
+  if (::chmod(P.begin(), Permissions))
     return std::error_code(errno, std::generic_category());
   return std::error_code();
 }
@@ -833,10 +831,7 @@ std::error_code detail::directory_iterator_destruct(detail::DirIterState &it) {
 static file_type direntType(dirent* Entry) {
   // Most platforms provide the file type in the dirent: Linux/BSD/Mac.
   // The DTTOIF macro lets us reuse our status -> type conversion.
-  // Note that while glibc provides a macro to see if this is supported,
-  // _DIRENT_HAVE_D_TYPE, it's not defined on BSD/Mac, so we test for the
-  // d_type-to-mode_t conversion macro instead.
-#if defined(DTTOIF)
+#if defined(_DIRENT_HAVE_D_TYPE) && defined(DTTOIF)
   return typeForMode(DTTOIF(Entry->d_type));
 #else
   // Other platforms such as Solaris require a stat() to get the type.

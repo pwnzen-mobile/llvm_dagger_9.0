@@ -179,7 +179,6 @@ extern "C" void LLVMInitializeAArch64Target() {
   initializeFalkorMarkStridedAccessesLegacyPass(*PR);
   initializeLDTLSCleanupPass(*PR);
   initializeAArch64SpeculationHardeningPass(*PR);
-  initializeAArch64StackTaggingPass(*PR);
 }
 
 //===----------------------------------------------------------------------===//
@@ -447,8 +446,6 @@ void AArch64PassConfig::addIRPasses() {
     // invariant.
     addPass(createLICMPass());
   }
-
-  addPass(createAArch64StackTaggingPass());
 }
 
 // Pass Pipeline Configuration

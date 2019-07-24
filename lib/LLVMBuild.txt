@@ -23,6 +23,7 @@ subdirectories =
  CodeGen
  DebugInfo
  Demangle
+ DC
  ExecutionEngine
  FuzzMutate
  LineEditor

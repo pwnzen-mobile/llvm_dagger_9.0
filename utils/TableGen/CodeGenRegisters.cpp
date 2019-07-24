@@ -639,8 +639,7 @@ struct TupleExpander : SetTheory::Expander {
     // Precompute some types.
     Record *RegisterCl = Def->getRecords().getClass("Register");
     RecTy *RegisterRecTy = RecordRecTy::get(RegisterCl);
-    std::vector<StringRef> RegNames =
-      Def->getValueAsListOfStrings("RegAsmNames");
+    StringInit *BlankName = StringInit::get("");
 
     // Zip them up.
     for (unsigned n = 0; n != Length; ++n) {
@@ -655,15 +654,6 @@ struct TupleExpander : SetTheory::Expander {
         Tuple.push_back(DefInit::get(Reg));
         CostPerUse = std::max(CostPerUse,
                               unsigned(Reg->getValueAsInt("CostPerUse")));
-      }
-
-      StringInit *AsmName = StringInit::get("");
-      if (!RegNames.empty()) {
-        if (RegNames.size() <= n)
-          PrintFatalError(Def->getLoc(),
-                          "Register tuple definition missing name for '" +
-                            Name + "'.");
-        AsmName = StringInit::get(RegNames[n]);
       }
 
       // Create a new Record representing the synthesized register. This record
@@ -693,8 +683,9 @@ struct TupleExpander : SetTheory::Expander {
         if (Field == "SubRegs")
           RV.setValue(ListInit::get(Tuple, RegisterRecTy));
 
+        // Provide a blank AsmName. MC hacks are required anyway.
         if (Field == "AsmName")
-          RV.setValue(AsmName);
+          RV.setValue(BlankName);
 
         // CostPerUse is aggregated from all Tuple members.
         if (Field == "CostPerUse")

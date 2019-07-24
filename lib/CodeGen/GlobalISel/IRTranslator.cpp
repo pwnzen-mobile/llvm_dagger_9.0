@@ -879,8 +879,7 @@ bool IRTranslator::translateLoad(const User &U, MachineIRBuilder &MIRBuilder) {
     return true;
   }
 
-  const MDNode *Ranges =
-      Regs.size() == 1 ? LI.getMetadata(LLVMContext::MD_range) : nullptr;
+
   for (unsigned i = 0; i < Regs.size(); ++i) {
     Register Addr;
     MIRBuilder.materializeGEP(Addr, Base, OffsetTy, Offsets[i] / 8);
@@ -889,7 +888,7 @@ bool IRTranslator::translateLoad(const User &U, MachineIRBuilder &MIRBuilder) {
     unsigned BaseAlign = getMemOpAlignment(LI);
     auto MMO = MF->getMachineMemOperand(
         Ptr, Flags, (MRI->getType(Regs[i]).getSizeInBits() + 7) / 8,
-        MinAlign(BaseAlign, Offsets[i] / 8), AAMDNodes(), Ranges,
+        MinAlign(BaseAlign, Offsets[i] / 8), AAMDNodes(), nullptr,
         LI.getSyncScopeID(), LI.getOrdering());
     MIRBuilder.buildLoad(Regs[i], Addr, *MMO);
   }
@@ -1120,46 +1119,54 @@ bool IRTranslator::translateGetElementPtr(const User &U,
   return true;
 }
 
-bool IRTranslator::translateMemFunc(const CallInst &CI,
+bool IRTranslator::translateMemfunc(const CallInst &CI,
                                     MachineIRBuilder &MIRBuilder,
-                                    Intrinsic::ID ID) {
+                                    unsigned ID) {
 
   // If the source is undef, then just emit a nop.
-  if (isa<UndefValue>(CI.getArgOperand(1)))
-    return true;
-
-  ArrayRef<Register> Res;
-  auto ICall = MIRBuilder.buildIntrinsic(ID, Res, true);
-  for (auto AI = CI.arg_begin(), AE = CI.arg_end(); std::next(AI) != AE; ++AI)
-    ICall.addUse(getOrCreateVReg(**AI));
-
-  unsigned DstAlign = 0, SrcAlign = 0;
-  unsigned IsVol =
-      cast<ConstantInt>(CI.getArgOperand(CI.getNumArgOperands() - 1))
-          ->getZExtValue();
-
-  if (auto *MCI = dyn_cast<MemCpyInst>(&CI)) {
-    DstAlign = std::max<unsigned>(MCI->getDestAlignment(), 1);
-    SrcAlign = std::max<unsigned>(MCI->getSourceAlignment(), 1);
-  } else if (auto *MMI = dyn_cast<MemMoveInst>(&CI)) {
-    DstAlign = std::max<unsigned>(MMI->getDestAlignment(), 1);
-    SrcAlign = std::max<unsigned>(MMI->getSourceAlignment(), 1);
-  } else {
-    auto *MSI = cast<MemSetInst>(&CI);
-    DstAlign = std::max<unsigned>(MSI->getDestAlignment(), 1);
+  if (isa<UndefValue>(CI.getArgOperand(1))) {
+    switch (ID) {
+    case Intrinsic::memmove:
+    case Intrinsic::memcpy:
+    case Intrinsic::memset:
+      return true;
+    default:
+      break;
+    }
   }
 
-  // Create mem operands to store the alignment and volatile info.
-  auto VolFlag = IsVol ? MachineMemOperand::MOVolatile : MachineMemOperand::MONone;
-  ICall.addMemOperand(MF->getMachineMemOperand(
-      MachinePointerInfo(CI.getArgOperand(0)),
-      MachineMemOperand::MOStore | VolFlag, 1, DstAlign));
-  if (ID != Intrinsic::memset)
-    ICall.addMemOperand(MF->getMachineMemOperand(
-        MachinePointerInfo(CI.getArgOperand(1)),
-        MachineMemOperand::MOLoad | VolFlag, 1, SrcAlign));
+  LLT SizeTy = getLLTForType(*CI.getArgOperand(2)->getType(), *DL);
+  Type *DstTy = CI.getArgOperand(0)->getType();
+  if (cast<PointerType>(DstTy)->getAddressSpace() != 0 ||
+      SizeTy.getSizeInBits() != DL->getPointerSizeInBits(0))
+    return false;
 
-  return true;
+  SmallVector<CallLowering::ArgInfo, 8> Args;
+  for (int i = 0; i < 3; ++i) {
+    const auto &Arg = CI.getArgOperand(i);
+    Args.emplace_back(getOrCreateVReg(*Arg), Arg->getType());
+  }
+
+  const char *Callee;
+  switch (ID) {
+  case Intrinsic::memmove:
+  case Intrinsic::memcpy: {
+    Type *SrcTy = CI.getArgOperand(1)->getType();
+    if(cast<PointerType>(SrcTy)->getAddressSpace() != 0)
+      return false;
+    Callee = ID == Intrinsic::memcpy ? "memcpy" : "memmove";
+    break;
+  }
+  case Intrinsic::memset:
+    Callee = "memset";
+    break;
+  default:
+    return false;
+  }
+
+  return CLI->lowerCall(MIRBuilder, CI.getCallingConv(),
+                        MachineOperand::CreateES(Callee),
+                        CallLowering::ArgInfo({0}, CI.getType()), Args);
 }
 
 void IRTranslator::getStackGuard(Register DstReg,
@@ -1426,7 +1433,7 @@ bool IRTranslator::translateKnownIntrinsic(const CallInst &CI, Intrinsic::ID ID,
   case Intrinsic::memcpy:
   case Intrinsic::memmove:
   case Intrinsic::memset:
-    return translateMemFunc(CI, MIRBuilder, ID);
+    return translateMemfunc(CI, MIRBuilder, ID);
   case Intrinsic::eh_typeid_for: {
     GlobalValue *GV = ExtractTypeInfo(CI.getArgOperand(0));
     Register Reg = getOrCreateVReg(CI);

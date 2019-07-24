@@ -32,7 +32,6 @@ namespace pdb {
 class DbiStream;
 class GlobalsStream;
 class InfoStream;
-class InjectedSourceStream;
 class PDBStringTable;
 class PDBFileBuilder;
 class PublicsStream;
@@ -84,12 +83,7 @@ public:
 
   ArrayRef<support::ulittle32_t> getDirectoryBlockArray() const;
 
-  std::unique_ptr<msf::MappedBlockStream>
-  createIndexedStream(uint16_t SN) const;
-  Expected<std::unique_ptr<msf::MappedBlockStream>>
-  safelyCreateIndexedStream(uint32_t StreamIndex) const;
-  Expected<std::unique_ptr<msf::MappedBlockStream>>
-  safelyCreateNamedStream(StringRef Name);
+  std::unique_ptr<msf::MappedBlockStream> createIndexedStream(uint16_t SN);
 
   msf::MSFStreamLayout getStreamLayout(uint32_t StreamIdx) const;
   msf::MSFStreamLayout getFpmStreamLayout() const;
@@ -105,7 +99,6 @@ public:
   Expected<PublicsStream &> getPDBPublicsStream();
   Expected<SymbolStream &> getPDBSymbolStream();
   Expected<PDBStringTable &> getStringTable();
-  Expected<InjectedSourceStream &> getInjectedSourceStream();
 
   BumpPtrAllocator &getAllocator() { return Allocator; }
 
@@ -117,11 +110,15 @@ public:
   bool hasPDBSymbolStream();
   bool hasPDBTpiStream() const;
   bool hasPDBStringTable();
-  bool hasPDBInjectedSourceStream();
 
   uint32_t getPointerSize();
 
 private:
+  Expected<std::unique_ptr<msf::MappedBlockStream>>
+  safelyCreateIndexedStream(const msf::MSFLayout &Layout,
+                            BinaryStreamRef MsfData,
+                            uint32_t StreamIndex) const;
+
   std::string FilePath;
   BumpPtrAllocator &Allocator;
 
@@ -138,7 +135,6 @@ private:
   std::unique_ptr<SymbolStream> Symbols;
   std::unique_ptr<msf::MappedBlockStream> DirectoryStream;
   std::unique_ptr<msf::MappedBlockStream> StringTableStream;
-  std::unique_ptr<InjectedSourceStream> InjectedSources;
   std::unique_ptr<PDBStringTable> Strings;
 };
 }

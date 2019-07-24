@@ -165,7 +165,7 @@ void MachineFunction::init() {
                       !F.hasFnAttribute("no-realign-stack");
   FrameInfo = new (Allocator) MachineFrameInfo(
       getFnStackAlignment(STI, F), /*StackRealignable=*/CanRealignSP,
-      /*ForcedRealign=*/CanRealignSP &&
+      /*ForceRealign=*/CanRealignSP &&
           F.hasFnAttribute(Attribute::StackAlignment));
 
   if (F.hasFnAttribute(Attribute::StackAlignment))
@@ -823,14 +823,13 @@ try_next:;
   return FilterID;
 }
 
-void MachineFunction::addCodeViewHeapAllocSite(MachineInstr *I,
-                                               const MDNode *MD) {
+void MachineFunction::addCodeViewHeapAllocSite(MachineInstr *I, MDNode *MD) {
   MCSymbol *BeginLabel = Ctx.createTempSymbol("heapallocsite", true);
   MCSymbol *EndLabel = Ctx.createTempSymbol("heapallocsite", true);
   I->setPreInstrSymbol(*this, BeginLabel);
   I->setPostInstrSymbol(*this, EndLabel);
 
-  const DIType *DI = dyn_cast<DIType>(MD);
+  DIType *DI = dyn_cast<DIType>(MD);
   CodeViewHeapAllocSites.push_back(std::make_tuple(BeginLabel, EndLabel, DI));
 }
 

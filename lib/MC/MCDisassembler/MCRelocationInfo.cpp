@@ -16,6 +16,12 @@ MCRelocationInfo::MCRelocationInfo(MCContext &Ctx) : Ctx(Ctx) {}
 
 MCRelocationInfo::~MCRelocationInfo() = default;
 
+
+const MCExpr *
+MCRelocationInfo::createExprForRelocation(object::RelocationRef Rel) {
+  return nullptr;
+}
+
 const MCExpr *
 MCRelocationInfo::createExprForCAPIVariantKind(const MCExpr *SubExpr,
                                                unsigned VariantKind) {

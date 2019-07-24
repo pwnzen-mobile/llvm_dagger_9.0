@@ -541,7 +541,7 @@ static bool processUDivOrURem(BinaryOperator *Instr, LazyValueInfo *LVI) {
   // Find the smallest power of two bitwidth that's sufficient to hold Instr's
   // operands.
   auto OrigWidth = Instr->getType()->getIntegerBitWidth();
-  ConstantRange OperandRange(OrigWidth, /*isFullSet=*/false);
+  ConstantRange OperandRange(OrigWidth, /*isFullset=*/false);
   for (Value *Operand : Instr->operands()) {
     OperandRange = OperandRange.unionWith(
         LVI->getConstantRange(Operand, Instr->getParent()));

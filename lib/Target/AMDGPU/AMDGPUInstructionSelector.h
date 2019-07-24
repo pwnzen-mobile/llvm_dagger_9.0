@@ -73,7 +73,6 @@ private:
   bool selectG_TRUNC(MachineInstr &I) const;
   bool selectG_SZA_EXT(MachineInstr &I) const;
   bool selectG_CONSTANT(MachineInstr &I) const;
-  bool selectG_AND_OR_XOR(MachineInstr &I) const;
   bool selectG_ADD_SUB(MachineInstr &I) const;
   bool selectG_EXTRACT(MachineInstr &I) const;
   bool selectG_MERGE_VALUES(MachineInstr &I) const;
@@ -118,20 +117,6 @@ private:
   selectSmrdImm32(MachineOperand &Root) const;
   InstructionSelector::ComplexRendererFns
   selectSmrdSgpr(MachineOperand &Root) const;
-
-  template <bool Signed>
-  InstructionSelector::ComplexRendererFns
-  selectFlatOffsetImpl(MachineOperand &Root) const;
-  InstructionSelector::ComplexRendererFns
-  selectFlatOffset(MachineOperand &Root) const;
-
-  InstructionSelector::ComplexRendererFns
-  selectFlatOffsetSigned(MachineOperand &Root) const;
-
-  InstructionSelector::ComplexRendererFns
-  selectMUBUFScratchOffen(MachineOperand &Root) const;
-  InstructionSelector::ComplexRendererFns
-  selectMUBUFScratchOffset(MachineOperand &Root) const;
 
   const SIInstrInfo &TII;
   const SIRegisterInfo &TRI;

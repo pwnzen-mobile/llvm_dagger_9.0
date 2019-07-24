@@ -34,6 +34,13 @@ void llvm::dumpBytes(ArrayRef<uint8_t> bytes, raw_ostream &OS) {
 
 MCInstPrinter::~MCInstPrinter() = default;
 
+void MCInstPrinter::printMachineOperand(const MCInst *MI, unsigned OpType,
+                                        unsigned OpNo,
+                                        const MCSubtargetInfo &STI,
+                                        raw_ostream &OS) {
+  llvm_unreachable("Target should generate this");
+}
+
 /// getOpcodeName - Return the name of the specified opcode enum (e.g.
 /// "MOV32ri") or empty if we can't resolve it.
 StringRef MCInstPrinter::getOpcodeName(unsigned Opcode) const {

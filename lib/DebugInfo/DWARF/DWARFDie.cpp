@@ -663,7 +663,7 @@ iterator_range<DWARFDie::attribute_iterator> DWARFDie::attributes() const {
 }
 
 DWARFDie::attribute_iterator::attribute_iterator(DWARFDie D, bool End)
-    : Die(D), Index(0) {
+    : Die(D), AttrValue(0), Index(0) {
   auto AbbrDecl = Die.getAbbreviationDeclarationPtr();
   assert(AbbrDecl && "Must have abbreviation declaration");
   if (End) {
@@ -693,7 +693,7 @@ void DWARFDie::attribute_iterator::updateForIndex(
     AttrValue.ByteSize = ParseOffset - AttrValue.Offset;
   } else {
     assert(Index == NumAttrs && "Indexes should be [0, NumAttrs) only");
-    AttrValue = {};
+    AttrValue.clear();
   }
 }
 
@@ -733,6 +733,7 @@ bool DWARFAttribute::mayHaveLocationDescription(dwarf::Attribute Attr) {
   case DW_AT_call_data_value:
   // Extensions.
   case DW_AT_GNU_call_site_value:
+  case DW_AT_GNU_call_site_target:
     return true;
   default:
     return false;

@@ -126,8 +126,6 @@ class VectorType;
       WIN__DBZCHK,  // Windows' divide by zero check
 
       WLS,          // Low-overhead loops, While Loop Start
-      LOOP_DEC,     // Really a part of LE, performs the sub
-      LE,           // Low-overhead loops, Loop End
 
       VCEQ,         // Vector compare equal.
       VCEQZ,        // Vector compare equal to zero.
@@ -141,36 +139,32 @@ class VectorType;
       VCGTU,        // Vector compare unsigned greater than.
       VTST,         // Vector test bits.
 
-      // Vector shift by vector
-      VSHLs,        // ...left/right by signed
-      VSHLu,        // ...left/right by unsigned
-
       // Vector shift by immediate:
-      VSHLIMM,      // ...left
-      VSHRsIMM,     // ...right (signed)
-      VSHRuIMM,     // ...right (unsigned)
+      VSHL,         // ...left
+      VSHRs,        // ...right (signed)
+      VSHRu,        // ...right (unsigned)
 
       // Vector rounding shift by immediate:
-      VRSHRsIMM,    // ...right (signed)
-      VRSHRuIMM,    // ...right (unsigned)
-      VRSHRNIMM,    // ...right narrow
+      VRSHRs,       // ...right (signed)
+      VRSHRu,       // ...right (unsigned)
+      VRSHRN,       // ...right narrow
 
       // Vector saturating shift by immediate:
-      VQSHLsIMM,    // ...left (signed)
-      VQSHLuIMM,    // ...left (unsigned)
-      VQSHLsuIMM,   // ...left (signed to unsigned)
-      VQSHRNsIMM,   // ...right narrow (signed)
-      VQSHRNuIMM,   // ...right narrow (unsigned)
-      VQSHRNsuIMM,  // ...right narrow (signed to unsigned)
+      VQSHLs,       // ...left (signed)
+      VQSHLu,       // ...left (unsigned)
+      VQSHLsu,      // ...left (signed to unsigned)
+      VQSHRNs,      // ...right narrow (signed)
+      VQSHRNu,      // ...right narrow (unsigned)
+      VQSHRNsu,     // ...right narrow (signed to unsigned)
 
       // Vector saturating rounding shift by immediate:
-      VQRSHRNsIMM,  // ...right narrow (signed)
-      VQRSHRNuIMM,  // ...right narrow (unsigned)
-      VQRSHRNsuIMM, // ...right narrow (signed to unsigned)
+      VQRSHRNs,     // ...right narrow (signed)
+      VQRSHRNu,     // ...right narrow (unsigned)
+      VQRSHRNsu,    // ...right narrow (signed to unsigned)
 
       // Vector shift and insert:
-      VSLIIMM,      // ...left
-      VSRIIMM,      // ...right
+      VSLI,         // ...left
+      VSRI,         // ...right
 
       // Vector get lane (VMOV scalar to ARM core register)
       // (These are used for 8- and 16-bit element types only.)
@@ -840,7 +834,7 @@ class VectorType;
     void setAllExpand(MVT VT);
   };
 
-  enum VMOVModImmType {
+  enum NEONModImmType {
     VMOVModImm,
     VMVNModImm,
     MVEVMVNModImm,

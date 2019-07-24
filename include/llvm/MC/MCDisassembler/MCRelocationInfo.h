@@ -15,8 +15,14 @@
 #ifndef LLVM_MC_MCDISASSEMBLER_MCRELOCATIONINFO_H
 #define LLVM_MC_MCDISASSEMBLER_MCRELOCATIONINFO_H
 
+
+#include "llvm/Object/ObjectFile.h"
+
 namespace llvm {
 
+namespace object {
+class RelocationRef;
+}
 class MCContext;
 class MCExpr;
 
@@ -30,6 +36,12 @@ public:
   MCRelocationInfo(const MCRelocationInfo &) = delete;
   MCRelocationInfo &operator=(const MCRelocationInfo &) = delete;
   virtual ~MCRelocationInfo();
+
+
+   /// \brief Create an MCExpr for the relocation \p Rel.
+  /// \returns If possible, an MCExpr corresponding to Rel, else 0.
+  virtual const MCExpr *createExprForRelocation(object::RelocationRef Rel);
+
 
   /// Create an MCExpr for the target-specific \p VariantKind.
   /// The VariantKinds are defined in llvm-c/Disassembler.h.

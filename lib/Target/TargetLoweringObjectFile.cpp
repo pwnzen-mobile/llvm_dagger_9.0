@@ -47,7 +47,6 @@ void TargetLoweringObjectFile::Initialize(MCContext &ctx,
 
   // Reset various EH DWARF encodings.
   PersonalityEncoding = LSDAEncoding = TTypeEncoding = dwarf::DW_EH_PE_absptr;
-  CallSiteEncoding = dwarf::DW_EH_PE_uleb128;
 }
 
 TargetLoweringObjectFile::~TargetLoweringObjectFile() {

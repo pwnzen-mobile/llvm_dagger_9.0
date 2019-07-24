@@ -179,12 +179,9 @@ struct Attributor {
     assert(AAType::ID != Attribute::None &&
            "Cannot lookup generic abstract attributes!");
 
-    // Determine the argument number automatically for llvm::Arguments if none
-    // is set. Do not override a given one as it could be a use of the argument
-    // in a call site.
-    if (ArgNo == -1)
-      if (auto *Arg = dyn_cast<Argument>(&V))
-        ArgNo = Arg->getArgNo();
+    // Determine the argument number automatically for llvm::Arguments.
+    if (auto *Arg = dyn_cast<Argument>(&V))
+      ArgNo = Arg->getArgNo();
 
     // If a function was given together with an argument number, perform the
     // lookup for the actual argument instead. Don't do it for variadic
@@ -199,12 +196,8 @@ struct Attributor {
     const auto &KindToAbstractAttributeMap = AAMap.lookup({&V, ArgNo});
     if (AAType *AA = static_cast<AAType *>(
             KindToAbstractAttributeMap.lookup(AAType::ID))) {
-      // Do not return an attribute with an invalid state. This minimizes checks
-      // at the calls sites and allows the fallback below to kick in.
-      if (AA->getState().isValidState()) {
-        QueryMap[AA].insert(&QueryingAA);
-        return AA;
-      }
+      QueryMap[AA].insert(&QueryingAA);
+      return AA;
     }
 
     // If no abstract attribute was found and we look for a call site argument,
@@ -232,13 +225,10 @@ struct Attributor {
                   "'AbstractAttribute'!");
 
     // Determine the anchor value and the argument number which are used to
-    // lookup the attribute together with AAType::ID. If passed an argument,
-    // use its argument number but do not override a given one as it could be a
-    // use of the argument at a call site.
+    // lookup the attribute together with AAType::ID.
     Value &AnchoredVal = AA.getAnchoredValue();
-    if (ArgNo == -1)
-      if (auto *Arg = dyn_cast<Argument>(&AnchoredVal))
-        ArgNo = Arg->getArgNo();
+    if (auto *Arg = dyn_cast<Argument>(&AnchoredVal))
+      ArgNo = Arg->getArgNo();
 
     // Put the attribute in the lookup map structure and the container we use to
     // keep track of all attributes.
@@ -262,14 +252,6 @@ struct Attributor {
   void identifyDefaultAbstractAttributes(
       Function &F, InformationCache &InfoCache,
       DenseSet</* Attribute::AttrKind */ unsigned> *Whitelist = nullptr);
-
-  /// Check \p Pred on all function call sites.
-  ///
-  /// This method will evaluate \p Pred on call sites and return
-  /// true if \p Pred holds in every call sites. However, this is only possible
-  /// all call sites are known, hence the function has internal linkage.
-  bool checkForAllCallSites(Function &F, std::function<bool(CallSite)> &Pred,
-                            bool RequireAllCallSites);
 
 private:
   /// The set of all abstract attributes.
@@ -395,7 +377,7 @@ struct AbstractState {
 /// state will catch up with the assumed one, for a pessimistic fixpoint it is
 /// the other way around.
 struct IntegerState : public AbstractState {
-  /// Underlying integer type, we assume 32 bits to be enough.
+  /// Undrlying integer type, we assume 32 bits to be enough.
   using base_t = uint32_t;
 
   /// Initialize the (best) state.
@@ -453,27 +435,6 @@ struct IntegerState : public AbstractState {
     // Make sure we never loose any "known bits".
     Assumed = (Assumed & BitsEncoding) | Known;
     return *this;
-  }
-
-  /// Take minimum of assumed and \p Value.
-  IntegerState &takeAssumedMinimum(base_t Value) {
-    // Make sure we never loose "known value".
-    Assumed = std::max(std::min(Assumed, Value), Known);
-    return *this;
-  }
-
-  /// Take maximum of known and \p Value.
-  IntegerState &takeKnownMaximum(base_t Value) {
-    // Make sure we never loose "known value".
-    Assumed = std::max(Value, Assumed);
-    Known = std::max(Value, Known);
-    return *this;
-  }
-
-  /// Equality for IntegerState.
-  bool operator==(const IntegerState &R) const {
-    return this->getAssumed() == R.getAssumed() &&
-           this->getKnown() == R.getKnown();
   }
 
 private:
@@ -696,213 +657,27 @@ struct AAReturnedValues : public AbstractAttribute {
   checkForallReturnedValues(std::function<bool(Value &)> &Pred) const = 0;
 
   /// See AbstractAttribute::getAttrKind()
-  Attribute::AttrKind getAttrKind() const override { return ID; }
+  virtual Attribute::AttrKind getAttrKind() const override { return ID; }
 
   /// The identifier used by the Attributor for this class of attributes.
   static constexpr Attribute::AttrKind ID = Attribute::Returned;
 };
 
 struct AANoUnwind : public AbstractAttribute {
-  /// An abstract interface for all nosync attributes.
-  AANoUnwind(Value &V, InformationCache &InfoCache)
-      : AbstractAttribute(V, InfoCache) {}
+    /// An abstract interface for all nosync attributes.
+    AANoUnwind(Value &V, InformationCache &InfoCache)
+        : AbstractAttribute(V, InfoCache) {}
 
-  /// See AbstractAttribute::getAttrKind()/
-  Attribute::AttrKind getAttrKind() const override { return ID; }
+    /// See AbstractAttribute::getAttrKind()/
+    virtual Attribute::AttrKind getAttrKind() const override { return ID; }
 
-  static constexpr Attribute::AttrKind ID = Attribute::NoUnwind;
+    static constexpr Attribute::AttrKind ID = Attribute::NoUnwind;
 
-  /// Returns true if nounwind is assumed.
-  virtual bool isAssumedNoUnwind() const = 0;
+    /// Returns true if nounwind is assumed.
+    virtual bool isAssumedNoUnwind() const = 0;
 
-  /// Returns true if nounwind is known.
-  virtual bool isKnownNoUnwind() const = 0;
-};
-
-struct AANoSync : public AbstractAttribute {
-  /// An abstract interface for all nosync attributes.
-  AANoSync(Value &V, InformationCache &InfoCache)
-      : AbstractAttribute(V, InfoCache) {}
-
-  /// See AbstractAttribute::getAttrKind().
-  Attribute::AttrKind getAttrKind() const override { return ID; }
-
-  static constexpr Attribute::AttrKind ID =
-      Attribute::AttrKind(Attribute::NoSync);
-
-  /// Returns true if "nosync" is assumed.
-  virtual bool isAssumedNoSync() const = 0;
-
-  /// Returns true if "nosync" is known.
-  virtual bool isKnownNoSync() const = 0;
-};
-
-/// An abstract interface for all nonnull attributes.
-struct AANonNull : public AbstractAttribute {
-
-  /// See AbstractAttribute::AbstractAttribute(...).
-  AANonNull(Value &V, InformationCache &InfoCache)
-      : AbstractAttribute(V, InfoCache) {}
-
-  /// See AbstractAttribute::AbstractAttribute(...).
-  AANonNull(Value *AssociatedVal, Value &AnchoredValue,
-            InformationCache &InfoCache)
-      : AbstractAttribute(AssociatedVal, AnchoredValue, InfoCache) {}
-
-  /// Return true if we assume that the underlying value is nonnull.
-  virtual bool isAssumedNonNull() const = 0;
-
-  /// Return true if we know that underlying value is nonnull.
-  virtual bool isKnownNonNull() const = 0;
-
-  /// See AbastractState::getAttrKind().
-  Attribute::AttrKind getAttrKind() const override { return ID; }
-
-  /// The identifier used by the Attributor for this class of attributes.
-  static constexpr Attribute::AttrKind ID = Attribute::NonNull;
-};
-
-/// An abstract attribute for norecurse.
-struct AANoRecurse : public AbstractAttribute {
-
-  /// See AbstractAttribute::AbstractAttribute(...).
-  AANoRecurse(Value &V, InformationCache &InfoCache)
-      : AbstractAttribute(V, InfoCache) {}
-
-  /// See AbstractAttribute::getAttrKind()
-  virtual Attribute::AttrKind getAttrKind() const override {
-    return Attribute::NoRecurse;
-  }
-
-  /// Return true if "norecurse" is known.
-  virtual bool isKnownNoRecurse() const = 0;
-
-  /// Return true if "norecurse" is assumed.
-  virtual bool isAssumedNoRecurse() const = 0;
-
-  /// The identifier used by the Attributor for this class of attributes.
-  static constexpr Attribute::AttrKind ID = Attribute::NoRecurse;
-};
-
-/// An abstract attribute for willreturn.
-struct AAWillReturn : public AbstractAttribute {
-
-  /// See AbstractAttribute::AbstractAttribute(...).
-  AAWillReturn(Value &V, InformationCache &InfoCache)
-      : AbstractAttribute(V, InfoCache) {}
-
-  /// See AbstractAttribute::getAttrKind()
-  virtual Attribute::AttrKind getAttrKind() const override {
-    return Attribute::WillReturn;
-  }
-
-  /// Return true if "willreturn" is known.
-  virtual bool isKnownWillReturn() const = 0;
-
-  /// Return true if "willreturn" is assumed.
-  virtual bool isAssumedWillReturn() const = 0;
-
-  /// The identifier used by the Attributor for this class of attributes.
-  static constexpr Attribute::AttrKind ID = Attribute::WillReturn;
-};
-
-/// An abstract interface for all noalias attributes.
-struct AANoAlias : public AbstractAttribute {
-
-  /// See AbstractAttribute::AbstractAttribute(...).
-  AANoAlias(Value &V, InformationCache &InfoCache)
-      : AbstractAttribute(V, InfoCache) {}
-
-  /// Return true if we assume that the underlying value is alias.
-  virtual bool isAssumedNoAlias() const = 0;
-
-  /// Return true if we know that underlying value is noalias.
-  virtual bool isKnownNoAlias() const = 0;
-
-  /// See AbastractState::getAttrKind().
-  Attribute::AttrKind getAttrKind() const override { return ID; }
-
-  /// The identifier used by the Attributor for this class of attributes.
-  static constexpr Attribute::AttrKind ID = Attribute::NoAlias;
-};
-
-/// An AbstractAttribute for noreturn.
-struct AANoReturn : public AbstractAttribute {
-
-  /// See AbstractAttribute::AbstractAttribute(...).
-  AANoReturn(Value &V, InformationCache &InfoCache)
-      : AbstractAttribute(V, InfoCache) {}
-
-  /// Return true if the underlying object is known to never return.
-  virtual bool isKnownNoReturn() const = 0;
-
-  /// Return true if the underlying object is assumed to never return.
-  virtual bool isAssumedNoReturn() const = 0;
-
-  /// See AbstractAttribute::getAttrKind()
-  Attribute::AttrKind getAttrKind() const override { return ID; }
-
-  /// The identifier used by the Attributor for this class of attributes.
-  static constexpr Attribute::AttrKind ID = Attribute::NoReturn;
-};
-
-/// An abstract interface for liveness abstract attribute.
-struct AAIsDead : public AbstractAttribute {
-
-  /// See AbstractAttribute::AbstractAttribute(...).
-  AAIsDead(Value &V, InformationCache &InfoCache)
-      : AbstractAttribute(V, InfoCache) {}
-
-  /// See AbstractAttribute::getAttrKind()
-  Attribute::AttrKind getAttrKind() const override { return ID; }
-
-  static constexpr Attribute::AttrKind ID =
-      Attribute::AttrKind(Attribute::EndAttrKinds + 1);
-
-  /// Returns true if \p BB is assumed dead.
-  virtual bool isAssumedDead(BasicBlock *BB) const = 0;
-
-  /// Returns true if \p BB is known dead.
-  virtual bool isKnownDead(BasicBlock *BB) const = 0;
-};
-
-/// An abstract interface for all dereferenceable attribute.
-struct AADereferenceable : public AbstractAttribute {
-
-  /// See AbstractAttribute::AbstractAttribute(...).
-  AADereferenceable(Value &V, InformationCache &InfoCache)
-      : AbstractAttribute(V, InfoCache) {}
-
-  /// See AbstractAttribute::AbstractAttribute(...).
-  AADereferenceable(Value *AssociatedVal, Value &AnchoredValue,
-                    InformationCache &InfoCache)
-      : AbstractAttribute(AssociatedVal, AnchoredValue, InfoCache) {}
-
-  /// Return true if we assume that the underlying value is nonnull.
-  virtual bool isAssumedNonNull() const = 0;
-
-  /// Return true if we know that underlying value is nonnull.
-  virtual bool isKnownNonNull() const = 0;
-
-  /// Return true if we assume that underlying value is
-  /// dereferenceable(_or_null) globally.
-  virtual bool isAssumedGlobal() const = 0;
-
-  /// Return true if we know that underlying value is
-  /// dereferenceable(_or_null) globally.
-  virtual bool isKnownGlobal() const = 0;
-
-  /// Return assumed dereferenceable bytes.
-  virtual uint32_t getAssumedDereferenceableBytes() const = 0;
-
-  /// Return known dereferenceable bytes.
-  virtual uint32_t getKnownDereferenceableBytes() const = 0;
-
-  /// See AbastractState::getAttrKind().
-  Attribute::AttrKind getAttrKind() const override { return ID; }
-
-  /// The identifier used by the Attributor for this class of attributes.
-  static constexpr Attribute::AttrKind ID = Attribute::Dereferenceable;
+    /// Returns true if nounwind is known.
+    virtual bool isKnownNoUnwind() const = 0;
 };
 
 } // end namespace llvm

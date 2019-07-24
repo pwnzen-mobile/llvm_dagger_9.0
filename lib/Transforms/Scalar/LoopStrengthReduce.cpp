@@ -3125,7 +3125,7 @@ static bool canFoldIVIncExpr(const SCEV *IncExpr, Instruction *UserInst,
   MemAccessTy AccessTy = getAccessType(TTI, UserInst, Operand);
   int64_t IncOffset = IncConst->getValue()->getSExtValue();
   if (!isAlwaysFoldable(TTI, LSRUse::Address, AccessTy, /*BaseGV=*/nullptr,
-                        IncOffset, /*HasBaseReg=*/false))
+                        IncOffset, /*HaseBaseReg=*/false))
     return false;
 
   return true;

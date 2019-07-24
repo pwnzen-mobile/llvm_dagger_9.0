@@ -75,6 +75,12 @@ namespace llvm {
   inline void InitializeAllTargetMCs() {
 #define LLVM_TARGET(TargetName) LLVMInitialize##TargetName##TargetMC();
 #include "llvm/Config/Targets.def"
+
+  }
+
+  inline void InitializeAllTargetDCs() {
+    #define LLVM_TARGETDC(TargetName) LLVMInitialize##TargetName##TargetDC();
+    #include "llvm/Config/TargetDCs.def"
   }
 
   /// InitializeAllAsmPrinters - The main program should call this function if

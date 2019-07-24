@@ -106,8 +106,6 @@ public:
   SourceMgr() = default;
   SourceMgr(const SourceMgr &) = delete;
   SourceMgr &operator=(const SourceMgr &) = delete;
-  SourceMgr(SourceMgr &&) = default;
-  SourceMgr &operator=(SourceMgr &&) = default;
   ~SourceMgr() = default;
 
   void setIncludeDirs(const std::vector<std::string> &Dirs) {

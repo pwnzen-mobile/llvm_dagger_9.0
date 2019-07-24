@@ -19,7 +19,6 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -136,7 +135,7 @@ class AggressiveDeadCodeElimination {
   SmallPtrSet<const Metadata *, 32> AliveScopes;
 
   /// Set of blocks with not known to have live terminators.
-  SmallSetVector<BasicBlock *, 16> BlocksWithDeadTerminators;
+  SmallPtrSet<BasicBlock *, 16> BlocksWithDeadTerminators;
 
   /// The set of blocks which we have determined whose control
   /// dependence sources must be live and which have not had
@@ -390,7 +389,7 @@ void AggressiveDeadCodeElimination::markLive(Instruction *I) {
   // Mark the containing block live
   auto &BBInfo = *Info.Block;
   if (BBInfo.Terminator == I) {
-    BlocksWithDeadTerminators.remove(BBInfo.BB);
+    BlocksWithDeadTerminators.erase(BBInfo.BB);
     // For live terminators, mark destination blocks
     // live to preserve this control flow edges.
     if (!BBInfo.UnconditionalBranch)
@@ -479,14 +478,10 @@ void AggressiveDeadCodeElimination::markLiveBranchesFromControlDependences() {
   // which currently have dead terminators that are control
   // dependence sources of a block which is in NewLiveBlocks.
 
-  const SmallPtrSet<BasicBlock *, 16> BWDT{
-      BlocksWithDeadTerminators.begin(),
-      BlocksWithDeadTerminators.end()
-  };
   SmallVector<BasicBlock *, 32> IDFBlocks;
   ReverseIDFCalculator IDFs(PDT);
   IDFs.setDefiningBlocks(NewLiveBlocks);
-  IDFs.setLiveInBlocks(BWDT);
+  IDFs.setLiveInBlocks(BlocksWithDeadTerminators);
   IDFs.calculate(IDFBlocks);
   NewLiveBlocks.clear();
 

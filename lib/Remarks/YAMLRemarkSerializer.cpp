@@ -11,11 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Remarks/YAMLRemarkSerializer.h"
+#include "llvm/Remarks/RemarkSerializer.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace llvm::remarks;
+
+cl::opt<bool> RemarksYAMLStringTable(
+    "remarks-yaml-string-table", cl::init(false), cl::Hidden,
+    cl::desc("Enable the usage of a string table with YAML remarks."));
 
 // Use the same keys whether we use a string table or not (respectively, T is an
 // unsigned or a StringRef).
@@ -149,8 +153,11 @@ template <> struct MappingTraits<Argument> {
 
 LLVM_YAML_IS_SEQUENCE_VECTOR(Argument)
 
-YAMLSerializer::YAMLSerializer(raw_ostream &OS)
-    : Serializer(OS), YAMLOutput(OS, reinterpret_cast<void *>(this)) {}
+YAMLSerializer::YAMLSerializer(raw_ostream &OS, UseStringTable UseStringTable)
+    : Serializer(OS), YAMLOutput(OS, reinterpret_cast<void *>(this)) {
+  if (UseStringTable == remarks::UseStringTable::Yes || RemarksYAMLStringTable)
+    StrTab.emplace();
+}
 
 void YAMLSerializer::emit(const Remark &Remark) {
   // Again, YAMLTraits expect a non-const object for inputting, but we're not

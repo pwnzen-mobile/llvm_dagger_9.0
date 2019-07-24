@@ -433,6 +433,13 @@ include "AArch64SchedExynosM4.td"
 include "AArch64SchedThunderX.td"
 include "AArch64SchedThunderX2T99.td"
 
+
+//===----------------------------------------------------------------------===//
+// Instruction and Register semantics
+//===----------------------------------------------------------------------===//
+
+include "AArch64Sema.td"
+
 def ProcA35     : SubtargetFeature<"a35", "ARMProcFamily", "CortexA35",
                                    "Cortex-A35 ARM processors", [
                                    FeatureCRC,

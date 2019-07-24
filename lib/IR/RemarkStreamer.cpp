@@ -15,8 +15,6 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
-#include "llvm/Remarks/RemarkFormat.h"
-#include "llvm/Remarks/YAMLRemarkSerializer.h"
 
 using namespace llvm;
 
@@ -73,6 +71,9 @@ toRemarkLocation(const DiagnosticLocation &DL) {
 /// LLVM Diagnostic -> Remark
 remarks::Remark
 RemarkStreamer::toRemark(const DiagnosticInfoOptimizationBase &Diag) {
+  // Re-use the buffer.
+  TmpArgs.clear();
+
   remarks::Remark R; // The result.
   R.RemarkType = toRemarkType(static_cast<DiagnosticKind>(Diag.getKind()));
   R.PassName = Diag.getPassName();
@@ -82,12 +83,15 @@ RemarkStreamer::toRemark(const DiagnosticInfoOptimizationBase &Diag) {
   R.Loc = toRemarkLocation(Diag.getLocation());
   R.Hotness = Diag.getHotness();
 
+  // Use TmpArgs to build the list of arguments and re-use the memory allocated
+  // from previous remark conversions.
   for (const DiagnosticInfoOptimizationBase::Argument &Arg : Diag.getArgs()) {
-    R.Args.emplace_back();
-    R.Args.back().Key = Arg.Key;
-    R.Args.back().Val = Arg.Val;
-    R.Args.back().Loc = toRemarkLocation(Arg.Loc);
+    TmpArgs.emplace_back();
+    TmpArgs.back().Key = Arg.Key;
+    TmpArgs.back().Val = Arg.Val;
+    TmpArgs.back().Loc = toRemarkLocation(Arg.Loc);
   }
+  R.Args = TmpArgs; // This is valid until the next call to this function.
 
   return R;
 }
@@ -108,17 +112,28 @@ char RemarkSetupPatternError::ID = 0;
 char RemarkSetupFormatError::ID = 0;
 
 static std::unique_ptr<remarks::Serializer>
-formatToSerializer(remarks::Format RemarksFormat, raw_ostream &OS) {
+formatToSerializer(RemarksSerializerFormat RemarksFormat, raw_ostream &OS) {
   switch (RemarksFormat) {
-  case remarks::Format::Unknown:
+  default:
     llvm_unreachable("Unknown remark serializer format.");
     return nullptr;
-  case remarks::Format::YAML:
+  case RemarksSerializerFormat::YAML:
     return llvm::make_unique<remarks::YAMLSerializer>(OS);
-  case remarks::Format::YAMLStrTab:
-    return llvm::make_unique<remarks::YAMLStrTabSerializer>(OS);
   };
-  llvm_unreachable("Unknown remarks::Format enum");
+}
+
+Expected<RemarksSerializerFormat>
+llvm::parseSerializerFormat(StringRef StrFormat) {
+  auto Format = StringSwitch<RemarksSerializerFormat>(StrFormat)
+                    .Cases("", "yaml", RemarksSerializerFormat::YAML)
+                    .Default(RemarksSerializerFormat::Unknown);
+
+  if (Format == RemarksSerializerFormat::Unknown)
+    return createStringError(std::make_error_code(std::errc::invalid_argument),
+                             "Unknown remark serializer format: '%s'",
+                             StrFormat.data());
+
+  return Format;
 }
 
 Expected<std::unique_ptr<ToolOutputFile>>
@@ -143,7 +158,8 @@ llvm::setupOptimizationRemarks(LLVMContext &Context, StringRef RemarksFilename,
   if (EC)
     return make_error<RemarkSetupFileError>(errorCodeToError(EC));
 
-  Expected<remarks::Format> Format = remarks::parseFormat(RemarksFormat);
+  Expected<RemarksSerializerFormat> Format =
+      parseSerializerFormat(RemarksFormat);
   if (Error E = Format.takeError())
     return make_error<RemarkSetupFormatError>(std::move(E));
 

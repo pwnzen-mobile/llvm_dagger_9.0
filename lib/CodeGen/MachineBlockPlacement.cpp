@@ -3040,7 +3040,7 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
 
     if (BF.OptimizeFunction(MF, TII, MF.getSubtarget().getRegisterInfo(),
                             getAnalysisIfAvailable<MachineModuleInfo>(), MLI,
-                            /*AfterPlacement=*/true)) {
+                            /*AfterBlockPlacement=*/true)) {
       // Redo the layout if tail merging creates/removes/moves blocks.
       BlockToChain.clear();
       ComputedEdges.clear();

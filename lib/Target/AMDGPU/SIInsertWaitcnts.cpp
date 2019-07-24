@@ -463,7 +463,7 @@ RegInterval WaitcntBrackets::getRegInterval(const MachineInstr *MI,
                                             unsigned OpNo, bool Def) const {
   const MachineOperand &Op = MI->getOperand(OpNo);
   if (!Op.isReg() || !TRI->isInAllocatableClass(Op.getReg()) ||
-      (Def && !Op.isDef()) || TRI->isAGPR(*MRI, Op.getReg()))
+      (Def && !Op.isDef()))
     return {-1, -1};
 
   // A use via a PW operand does not need a waitcnt.

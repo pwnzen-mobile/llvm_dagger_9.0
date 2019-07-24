@@ -568,7 +568,6 @@ MachineInstrBuilder MachineIRBuilder::buildMerge(const DstOp &Res,
   // we need some temporary storage for the DstOp objects. Here we use a
   // sufficiently large SmallVector to not go through the heap.
   SmallVector<SrcOp, 8> TmpVec(Ops.begin(), Ops.end());
-  assert(TmpVec.size() > 1);
   return buildInstr(TargetOpcode::G_MERGE_VALUES, Res, TmpVec);
 }
 
@@ -578,7 +577,6 @@ MachineInstrBuilder MachineIRBuilder::buildUnmerge(ArrayRef<LLT> Res,
   // we need some temporary storage for the DstOp objects. Here we use a
   // sufficiently large SmallVector to not go through the heap.
   SmallVector<DstOp, 8> TmpVec(Res.begin(), Res.end());
-  assert(TmpVec.size() > 1);
   return buildInstr(TargetOpcode::G_UNMERGE_VALUES, TmpVec, Op);
 }
 
@@ -597,7 +595,6 @@ MachineInstrBuilder MachineIRBuilder::buildUnmerge(ArrayRef<Register> Res,
   // we need some temporary storage for the DstOp objects. Here we use a
   // sufficiently large SmallVector to not go through the heap.
   SmallVector<DstOp, 8> TmpVec(Res.begin(), Res.end());
-  assert(TmpVec.size() > 1);
   return buildInstr(TargetOpcode::G_UNMERGE_VALUES, TmpVec, Op);
 }
 

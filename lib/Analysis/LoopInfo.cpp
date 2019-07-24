@@ -432,11 +432,8 @@ bool Loop::isLoopSimplifyForm() const {
 bool Loop::isSafeToClone() const {
   // Return false if any loop blocks contain indirectbrs, or there are any calls
   // to noduplicate functions.
-  // FIXME: it should be ok to clone CallBrInst's if we correctly update the
-  // operand list to reflect the newly cloned labels.
   for (BasicBlock *BB : this->blocks()) {
-    if (isa<IndirectBrInst>(BB->getTerminator()) ||
-        isa<CallBrInst>(BB->getTerminator()))
+    if (isa<IndirectBrInst>(BB->getTerminator()))
       return false;
 
     for (Instruction &I : *BB)
@@ -1039,7 +1036,7 @@ void LoopInfoWrapperPass::verifyAnalysis() const {
 
 void LoopInfoWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequired<DominatorTreeWrapperPass>();
 }
 
 void LoopInfoWrapperPass::print(raw_ostream &OS, const Module *) const {

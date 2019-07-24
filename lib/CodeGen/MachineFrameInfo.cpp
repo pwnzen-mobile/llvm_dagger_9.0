@@ -92,7 +92,7 @@ int MachineFrameInfo::CreateFixedObject(uint64_t Size, int64_t SPOffset,
   Alignment = clampStackAlignment(!StackRealignable, Alignment, StackAlignment);
   Objects.insert(Objects.begin(),
                  StackObject(Size, Alignment, SPOffset, IsImmutable,
-                             /*IsSpillSlot=*/false, /*Alloca=*/nullptr,
+                             /*isSpillSlot=*/false, /*Alloca=*/nullptr,
                              IsAliased));
   return -++NumFixedObjects;
 }

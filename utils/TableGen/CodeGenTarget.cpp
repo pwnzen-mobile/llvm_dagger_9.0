@@ -191,7 +191,7 @@ StringRef llvm::getEnumName(MVT::SimpleValueType T) {
   case MVT::iPTR:     return "MVT::iPTR";
   case MVT::iPTRAny:  return "MVT::iPTRAny";
   case MVT::Untyped:  return "MVT::Untyped";
-  case MVT::exnref:   return "MVT::exnref";
+  case MVT::ExceptRef: return "MVT::ExceptRef";
   default: llvm_unreachable("ILLEGAL VALUE TYPE!");
   }
 }
@@ -557,7 +557,6 @@ CodeGenIntrinsic::CodeGenIntrinsic(Record *R) {
   isCommutative = false;
   canThrow = false;
   isNoReturn = false;
-  isWillReturn = false;
   isCold = false;
   isNoDuplicate = false;
   isConvergent = false;
@@ -722,8 +721,6 @@ CodeGenIntrinsic::CodeGenIntrinsic(Record *R) {
       isConvergent = true;
     else if (Property->getName() == "IntrNoReturn")
       isNoReturn = true;
-    else if (Property->getName() == "IntrWillReturn")
-      isWillReturn = true;
     else if (Property->getName() == "IntrCold")
       isCold = true;
     else if (Property->getName() == "IntrSpeculatable")

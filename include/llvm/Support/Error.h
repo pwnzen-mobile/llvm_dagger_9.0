@@ -561,6 +561,10 @@ public:
     assertIsChecked();
     return toPointer(getStorage());
   }
+  
+  error_type getError() const {
+    return HasError ? *getErrorStorage() : Error::success();
+  }
 
   /// Returns a const pointer to the stored T value.
   const_pointer operator->() const {

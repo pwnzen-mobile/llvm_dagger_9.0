@@ -78,7 +78,7 @@ bool WebAssemblyArgumentMove::runOnMachineFunction(MachineFunction &MF) {
 
   // Look for the first NonArg instruction.
   for (MachineInstr &MI : EntryMBB) {
-    if (!WebAssembly::isArgument(MI.getOpcode())) {
+    if (!WebAssembly::isArgument(MI)) {
       InsertPt = MI;
       break;
     }
@@ -87,7 +87,7 @@ bool WebAssemblyArgumentMove::runOnMachineFunction(MachineFunction &MF) {
   // Now move any argument instructions later in the block
   // to before our first NonArg instruction.
   for (MachineInstr &MI : llvm::make_range(InsertPt, EntryMBB.end())) {
-    if (WebAssembly::isArgument(MI.getOpcode())) {
+    if (WebAssembly::isArgument(MI)) {
       EntryMBB.insert(InsertPt, MI.removeFromParent());
       Changed = true;
     }

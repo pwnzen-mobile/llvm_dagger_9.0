@@ -241,7 +241,7 @@ unsigned getMaxWorkGroupsPerCU(const MCSubtargetInfo *STI,
 }
 
 unsigned getMaxWavesPerCU(const MCSubtargetInfo *STI) {
-  return getMaxWavesPerEU(STI) * getEUsPerCU(STI);
+  return getMaxWavesPerEU() * getEUsPerCU(STI);
 }
 
 unsigned getMaxWavesPerCU(const MCSubtargetInfo *STI,
@@ -253,11 +253,9 @@ unsigned getMinWavesPerEU(const MCSubtargetInfo *STI) {
   return 1;
 }
 
-unsigned getMaxWavesPerEU(const MCSubtargetInfo *STI) {
+unsigned getMaxWavesPerEU() {
   // FIXME: Need to take scratch memory into account.
-  if (!isGFX10(*STI))
-    return 10;
-  return 20;
+  return 10;
 }
 
 unsigned getMaxWavesPerEU(const MCSubtargetInfo *STI,
@@ -319,7 +317,7 @@ unsigned getMinNumSGPRs(const MCSubtargetInfo *STI, unsigned WavesPerEU) {
   if (Version.Major >= 10)
     return 0;
 
-  if (WavesPerEU >= getMaxWavesPerEU(STI))
+  if (WavesPerEU >= getMaxWavesPerEU())
     return 0;
 
   unsigned MinNumSGPRs = getTotalNumSGPRs(STI) / (WavesPerEU + 1);
@@ -396,19 +394,17 @@ unsigned getVGPREncodingGranule(const MCSubtargetInfo *STI,
 }
 
 unsigned getTotalNumVGPRs(const MCSubtargetInfo *STI) {
-  if (!isGFX10(*STI))
-    return 256;
-  return STI->getFeatureBits().test(FeatureWavefrontSize32) ? 1024 : 512;
+  return 256;
 }
 
 unsigned getAddressableNumVGPRs(const MCSubtargetInfo *STI) {
-  return 256;
+  return getTotalNumVGPRs(STI);
 }
 
 unsigned getMinNumVGPRs(const MCSubtargetInfo *STI, unsigned WavesPerEU) {
   assert(WavesPerEU != 0);
 
-  if (WavesPerEU >= getMaxWavesPerEU(STI))
+  if (WavesPerEU >= getMaxWavesPerEU())
     return 0;
   unsigned MinNumVGPRs =
       alignDown(getTotalNumVGPRs(STI) / (WavesPerEU + 1),
@@ -735,14 +731,9 @@ static bool isValidMsgId(int64_t MsgId) {
 }
 
 bool isValidMsgId(int64_t MsgId, const MCSubtargetInfo &STI, bool Strict) {
-  if (Strict) {
-    if (MsgId == ID_GS_ALLOC_REQ || MsgId == ID_GET_DOORBELL)
-      return isGFX9(STI) || isGFX10(STI);
-    else
-      return isValidMsgId(MsgId);
-  } else {
-    return 0 <= MsgId && isUInt<ID_WIDTH_>(MsgId);
-  }
+  return Strict ?
+         isValidMsgId(MsgId) && (MsgId != ID_GS_ALLOC_REQ || isGFX9(STI) || isGFX10(STI)) :
+         0 <= MsgId && isUInt<ID_WIDTH_>(MsgId);
 }
 
 StringRef getMsgName(int64_t MsgId) {

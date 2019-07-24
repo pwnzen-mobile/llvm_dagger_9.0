@@ -57,6 +57,12 @@ namespace {
 
 } // end anonymous namespace
 
+static const std::array<StringRef, 17> validArchs = {
+    "i386",   "x86_64", "x86_64h",  "armv4t",  "arm",    "armv5e",
+    "armv6",  "armv6m", "armv7",    "armv7em", "armv7k", "armv7m",
+    "armv7s", "arm64",  "arm64_32", "ppc",     "ppc64",
+};
+
 static Error malformedError(const Twine &Msg) {
   return make_error<GenericBinaryError>("truncated or malformed object (" +
                                             Msg + ")",
@@ -2718,19 +2724,11 @@ Triple MachOObjectFile::getHostArch() {
 }
 
 bool MachOObjectFile::isValidArch(StringRef ArchFlag) {
-  auto validArchs = getValidArchs();
-  return llvm::find(validArchs, ArchFlag) != validArchs.end();
+  return std::find(validArchs.cbegin(), validArchs.cend(), ArchFlag) !=
+         validArchs.cend();
 }
 
-ArrayRef<StringRef> MachOObjectFile::getValidArchs() {
-  static const std::array<StringRef, 17> validArchs = {
-      "i386",   "x86_64", "x86_64h",  "armv4t",  "arm",    "armv5e",
-      "armv6",  "armv6m", "armv7",    "armv7em", "armv7k", "armv7m",
-      "armv7s", "arm64",  "arm64_32", "ppc",     "ppc64",
-  };
-
-  return validArchs;
-}
+ArrayRef<StringRef> MachOObjectFile::getValidArchs() { return validArchs; }
 
 Triple::ArchType MachOObjectFile::getArch() const {
   return getArch(getCPUType(*this));

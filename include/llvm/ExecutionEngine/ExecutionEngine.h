@@ -21,7 +21,6 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
-#include "llvm/ExecutionEngine/OrcV1Deprecation.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Object/Binary.h"
@@ -635,13 +634,7 @@ public:
   }
 
   // Use OrcMCJITReplacement instead of MCJIT. Off by default.
-  LLVM_ATTRIBUTE_DEPRECATED(
-      inline void setUseOrcMCJITReplacement(bool UseOrcMCJITReplacement),
-      "ORCv1 utilities (including OrcMCJITReplacement) are deprecated. Please "
-      "use ORCv2/LLJIT instead (see docs/ORCv2.rst)");
-
-  void setUseOrcMCJITReplacement(ORCv1DeprecationAcknowledgement,
-                                 bool UseOrcMCJITReplacement) {
+  void setUseOrcMCJITReplacement(bool UseOrcMCJITReplacement) {
     this->UseOrcMCJITReplacement = UseOrcMCJITReplacement;
   }
 
@@ -664,10 +657,6 @@ public:
 
   ExecutionEngine *create(TargetMachine *TM);
 };
-
-void EngineBuilder::setUseOrcMCJITReplacement(bool UseOrcMCJITReplacement) {
-  this->UseOrcMCJITReplacement = UseOrcMCJITReplacement;
-}
 
 // Create wrappers for C Binding types (see CBindingWrapping.h).
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(ExecutionEngine, LLVMExecutionEngineRef)

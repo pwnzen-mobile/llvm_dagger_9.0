@@ -63,18 +63,8 @@ public:
 
   /// Construct an LegacyIRCompileLayer with the given BaseLayer, which must
   ///        implement the ObjectLayer concept.
-  LLVM_ATTRIBUTE_DEPRECATED(
-      LegacyIRCompileLayer(
-          BaseLayerT &BaseLayer, CompileFtor Compile,
-          NotifyCompiledCallback NotifyCompiled = NotifyCompiledCallback()),
-      "ORCv1 layers (layers with the 'Legacy' prefix) are deprecated. Please "
-      "use "
-      "the ORCv2 IRCompileLayer instead");
-
-  /// Legacy layer constructor with deprecation acknowledgement.
   LegacyIRCompileLayer(
-      ORCv1DeprecationAcknowledgement, BaseLayerT &BaseLayer,
-      CompileFtor Compile,
+      BaseLayerT &BaseLayer, CompileFtor Compile,
       NotifyCompiledCallback NotifyCompiled = NotifyCompiledCallback())
       : BaseLayer(BaseLayer), Compile(std::move(Compile)),
         NotifyCompiled(std::move(NotifyCompiled)) {}
@@ -132,14 +122,8 @@ private:
   NotifyCompiledCallback NotifyCompiled;
 };
 
-template <typename BaseLayerT, typename CompileFtor>
-LegacyIRCompileLayer<BaseLayerT, CompileFtor>::LegacyIRCompileLayer(
-    BaseLayerT &BaseLayer, CompileFtor Compile,
-    NotifyCompiledCallback NotifyCompiled)
-    : BaseLayer(BaseLayer), Compile(std::move(Compile)),
-      NotifyCompiled(std::move(NotifyCompiled)) {}
-
 } // end namespace orc
+
 } // end namespace llvm
 
 #endif // LLVM_EXECUTIONENGINE_ORC_IRCOMPILINGLAYER_H

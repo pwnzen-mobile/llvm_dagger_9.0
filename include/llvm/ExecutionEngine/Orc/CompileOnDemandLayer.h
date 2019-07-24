@@ -264,26 +264,13 @@ public:
       std::function<void(VModuleKey K, std::shared_ptr<SymbolResolver> R)>;
 
   /// Construct a compile-on-demand layer instance.
-  LLVM_ATTRIBUTE_DEPRECATED(
-      LegacyCompileOnDemandLayer(
-          ExecutionSession &ES, BaseLayerT &BaseLayer,
-          SymbolResolverGetter GetSymbolResolver,
-          SymbolResolverSetter SetSymbolResolver, PartitioningFtor Partition,
-          CompileCallbackMgrT &CallbackMgr,
-          IndirectStubsManagerBuilderT CreateIndirectStubsManager,
-          bool CloneStubsIntoPartitions = true),
-      "ORCv1 layers (layers with the 'Legacy' prefix) are deprecated. Please "
-      "use "
-      "the ORCv2 LegacyCompileOnDemandLayer instead");
-
-  /// Legacy layer constructor with deprecation acknowledgement.
-  LegacyCompileOnDemandLayer(
-      ORCv1DeprecationAcknowledgement, ExecutionSession &ES,
-      BaseLayerT &BaseLayer, SymbolResolverGetter GetSymbolResolver,
-      SymbolResolverSetter SetSymbolResolver, PartitioningFtor Partition,
-      CompileCallbackMgrT &CallbackMgr,
-      IndirectStubsManagerBuilderT CreateIndirectStubsManager,
-      bool CloneStubsIntoPartitions = true)
+  LegacyCompileOnDemandLayer(ExecutionSession &ES, BaseLayerT &BaseLayer,
+                             SymbolResolverGetter GetSymbolResolver,
+                             SymbolResolverSetter SetSymbolResolver,
+                             PartitioningFtor Partition,
+                             CompileCallbackMgrT &CallbackMgr,
+                             IndirectStubsManagerBuilderT CreateIndirectStubsManager,
+                             bool CloneStubsIntoPartitions = true)
       : ES(ES), BaseLayer(BaseLayer),
         GetSymbolResolver(std::move(GetSymbolResolver)),
         SetSymbolResolver(std::move(SetSymbolResolver)),
@@ -742,24 +729,8 @@ private:
   bool CloneStubsIntoPartitions;
 };
 
-template <typename BaseLayerT, typename CompileCallbackMgrT,
-          typename IndirectStubsMgrT>
-LegacyCompileOnDemandLayer<BaseLayerT, CompileCallbackMgrT, IndirectStubsMgrT>::
-    LegacyCompileOnDemandLayer(
-        ExecutionSession &ES, BaseLayerT &BaseLayer,
-        SymbolResolverGetter GetSymbolResolver,
-        SymbolResolverSetter SetSymbolResolver, PartitioningFtor Partition,
-        CompileCallbackMgrT &CallbackMgr,
-        IndirectStubsManagerBuilderT CreateIndirectStubsManager,
-        bool CloneStubsIntoPartitions)
-    : ES(ES), BaseLayer(BaseLayer),
-      GetSymbolResolver(std::move(GetSymbolResolver)),
-      SetSymbolResolver(std::move(SetSymbolResolver)),
-      Partition(std::move(Partition)), CompileCallbackMgr(CallbackMgr),
-      CreateIndirectStubsManager(std::move(CreateIndirectStubsManager)),
-      CloneStubsIntoPartitions(CloneStubsIntoPartitions) {}
-
 } // end namespace orc
+
 } // end namespace llvm
 
 #endif // LLVM_EXECUTIONENGINE_ORC_COMPILEONDEMANDLAYER_H

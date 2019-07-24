@@ -108,8 +108,8 @@ def SDT_ARMIntShiftParts : SDTypeProfile<2, 3, [SDTCisSameAs<0, 1>,
 
 // TODO Add another operand for 'Size' so that we can re-use this node when we
 // start supporting *TP versions.
-def SDT_ARMLoLoop : SDTypeProfile<0, 2, [SDTCisVT<0, i32>,
-                                         SDTCisVT<1, OtherVT>]>;
+def SDT_ARMWhileLoop : SDTypeProfile<0, 2, [SDTCisVT<0, i32>,
+                                            SDTCisVT<1, OtherVT>]>;
 
 def ARMSmlald        : SDNode<"ARMISD::SMLALD", SDT_LongMac>;
 def ARMSmlaldx       : SDNode<"ARMISD::SMLALDX", SDT_LongMac>;
@@ -254,20 +254,9 @@ def ARMvmovImm   : SDNode<"ARMISD::VMOVIMM", SDTARMVMOVIMM>;
 def ARMvmvnImm   : SDNode<"ARMISD::VMVNIMM", SDTARMVMOVIMM>;
 def ARMvmovFPImm : SDNode<"ARMISD::VMOVFPIMM", SDTARMVMOVIMM>;
 
+def ARMWLS : SDNode<"ARMISD::WLS", SDT_ARMWhileLoop,
+                    [SDNPHasChain]>;
 
-def SDTARMVSHIMM : SDTypeProfile<1, 2, [SDTCisInt<0>, SDTCisSameAs<0, 1>,
-                                        SDTCisVT<2, i32>]>;
-def SDTARMVSH : SDTypeProfile<1, 2, [SDTCisInt<0>, SDTCisSameAs<0, 1>,
-                                     SDTCisSameAs<0, 2>,]>;
-def ARMvshlImm   : SDNode<"ARMISD::VSHLIMM", SDTARMVSHIMM>;
-def ARMvshrsImm  : SDNode<"ARMISD::VSHRsIMM", SDTARMVSHIMM>;
-def ARMvshruImm  : SDNode<"ARMISD::VSHRuIMM", SDTARMVSHIMM>;
-def ARMvshls     : SDNode<"ARMISD::VSHLs", SDTARMVSH>;
-def ARMvshlu     : SDNode<"ARMISD::VSHLu", SDTARMVSH>;
-
-def ARMWLS      : SDNode<"ARMISD::WLS", SDT_ARMLoLoop, [SDNPHasChain]>;
-def ARMLE       : SDNode<"ARMISD::LE", SDT_ARMLoLoop, [SDNPHasChain]>;
-def ARMLoopDec  : SDNode<"ARMISD::LOOP_DEC", SDTIntBinOp, [SDNPHasChain]>;
 //===----------------------------------------------------------------------===//
 // ARM Flag Definitions.
 

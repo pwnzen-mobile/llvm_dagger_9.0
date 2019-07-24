@@ -1264,7 +1264,9 @@ bool LoopInterchangeTransform::transform() {
 }
 
 void LoopInterchangeTransform::splitInnerLoopLatch(Instruction *Inc) {
-  SplitBlock(InnerLoop->getLoopLatch(), Inc, DT, LI);
+  BasicBlock *InnerLoopLatch = InnerLoop->getLoopLatch();
+  BasicBlock *InnerLoopLatchPred = InnerLoopLatch;
+  InnerLoopLatch = SplitBlock(InnerLoopLatchPred, Inc, DT, LI);
 }
 
 /// \brief Move all instructions except the terminator from FromBB right before

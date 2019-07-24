@@ -164,8 +164,7 @@ void WebAssemblyFrameLowering::emitPrologue(MachineFunction &MF,
   auto &MRI = MF.getRegInfo();
 
   auto InsertPt = MBB.begin();
-  while (InsertPt != MBB.end() &&
-         WebAssembly::isArgument(InsertPt->getOpcode()))
+  while (InsertPt != MBB.end() && WebAssembly::isArgument(*InsertPt))
     ++InsertPt;
   DebugLoc DL;
 

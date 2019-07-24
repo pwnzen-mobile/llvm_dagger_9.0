@@ -737,10 +737,6 @@ class PatFrags<dag ops, list<dag> frags, code pred = [{}],
   // cast<StoreSDNode>(N)->isTruncatingStore();
   bit IsTruncStore = ?;
 
-  // cast<MemSDNode>(N)->getAddressSpace() ==
-  // If this empty, accept any address space.
-  list<int> AddressSpaces = ?;
-
   // cast<AtomicSDNode>(N)->getOrdering() == AtomicOrdering::Monotonic
   bit IsAtomicOrderingMonotonic = ?;
   // cast<AtomicSDNode>(N)->getOrdering() == AtomicOrdering::Acquire
@@ -766,8 +762,6 @@ class PatFrags<dag ops, list<dag> frags, code pred = [{}],
   // cast<LoadSDNode>(N)->getMemoryVT().getScalarType() == MVT::<VT>;
   // cast<StoreSDNode>(N)->getMemoryVT().getScalarType() == MVT::<VT>;
   ValueType ScalarMemoryVT = ?;
-
-  // TODO: Add alignment
 }
 
 // PatFrag - A version of PatFrags matching only a single fragment.

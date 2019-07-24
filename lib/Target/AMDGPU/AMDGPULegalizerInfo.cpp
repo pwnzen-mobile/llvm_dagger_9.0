@@ -151,9 +151,7 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
 
   const LLT GlobalPtr = GetAddrSpacePtr(AMDGPUAS::GLOBAL_ADDRESS);
   const LLT ConstantPtr = GetAddrSpacePtr(AMDGPUAS::CONSTANT_ADDRESS);
-  const LLT Constant32Ptr = GetAddrSpacePtr(AMDGPUAS::CONSTANT_ADDRESS_32BIT);
   const LLT LocalPtr = GetAddrSpacePtr(AMDGPUAS::LOCAL_ADDRESS);
-  const LLT RegionPtr = GetAddrSpacePtr(AMDGPUAS::REGION_ADDRESS);
   const LLT FlatPtr = GetAddrSpacePtr(AMDGPUAS::FLAT_ADDRESS);
   const LLT PrivatePtr = GetAddrSpacePtr(AMDGPUAS::PRIVATE_ADDRESS);
 
@@ -164,7 +162,7 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
   };
 
   const std::initializer_list<LLT> AddrSpaces32 = {
-    LocalPtr, PrivatePtr, Constant32Ptr, RegionPtr
+    LocalPtr, PrivatePtr
   };
 
   const std::initializer_list<LLT> FPTypesBase = {
@@ -215,7 +213,7 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
   // Report legal for any types we can handle anywhere. For the cases only legal
   // on the SALU, RegBankSelect will be able to re-legalize.
   getActionDefinitionsBuilder({G_AND, G_OR, G_XOR})
-    .legalFor({S32, S1, S64, V2S32, S16, V2S16, V4S16})
+    .legalFor({S32, S1, S64, V2S32, V2S16, V4S16})
     .clampScalar(0, S32, S64)
     .moreElementsIf(isSmallOddVector(0), oneMoreElement(0))
     .fewerElementsIf(vectorWiderThan(0, 32), fewerEltsToSize64Vector(0))
@@ -499,9 +497,6 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
       .custom();
   }
 
-  // TODO: Should load to s16 be legal? Most loads extend to 32-bits, but we
-  // handle some operations by just promoting the register during
-  // selection. There are also d16 loads on GFX9+ which preserve the high bits.
   getActionDefinitionsBuilder({G_LOAD, G_STORE})
     .narrowScalarIf([](const LegalityQuery &Query) {
         unsigned Size = Query.Types[0].getSizeInBits();
@@ -638,15 +633,12 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
     unsigned IdxTypeIdx = 2;
 
     getActionDefinitionsBuilder(Op)
-      .customIf([=](const LegalityQuery &Query) {
-          const LLT EltTy = Query.Types[EltTypeIdx];
-          const LLT VecTy = Query.Types[VecTypeIdx];
-          const LLT IdxTy = Query.Types[IdxTypeIdx];
-          return (EltTy.getSizeInBits() == 16 ||
-                  EltTy.getSizeInBits() % 32 == 0) &&
-                 VecTy.getSizeInBits() % 32 == 0 &&
-                 VecTy.getSizeInBits() <= 512 &&
-                 IdxTy.getSizeInBits() == 32;
+      .legalIf([=](const LegalityQuery &Query) {
+          const LLT &VecTy = Query.Types[VecTypeIdx];
+          const LLT &IdxTy = Query.Types[IdxTypeIdx];
+          return VecTy.getSizeInBits() % 32 == 0 &&
+            VecTy.getSizeInBits() <= 512 &&
+            IdxTy.getSizeInBits() == 32;
         })
       .clampScalar(EltTypeIdx, S32, S64)
       .clampScalar(VecTypeIdx, S32, S64)
@@ -795,10 +787,6 @@ bool AMDGPULegalizerInfo::legalizeCustom(MachineInstr &MI,
   case TargetOpcode::G_FMINNUM_IEEE:
   case TargetOpcode::G_FMAXNUM_IEEE:
     return legalizeMinNumMaxNum(MI, MRI, MIRBuilder);
-  case TargetOpcode::G_EXTRACT_VECTOR_ELT:
-    return legalizeExtractVectorElt(MI, MRI, MIRBuilder);
-  case TargetOpcode::G_INSERT_VECTOR_ELT:
-    return legalizeInsertVectorElt(MI, MRI, MIRBuilder);
   default:
     return false;
   }
@@ -1128,65 +1116,6 @@ bool AMDGPULegalizerInfo::legalizeMinNumMaxNum(
   LegalizerHelper Helper(MF, DummyObserver, HelperBuilder);
   HelperBuilder.setMBB(*MI.getParent());
   return Helper.lowerFMinNumMaxNum(MI) == LegalizerHelper::Legalized;
-}
-
-bool AMDGPULegalizerInfo::legalizeExtractVectorElt(
-  MachineInstr &MI, MachineRegisterInfo &MRI,
-  MachineIRBuilder &B) const {
-  // TODO: Should move some of this into LegalizerHelper.
-
-  // TODO: Promote dynamic indexing of s16 to s32
-  // TODO: Dynamic s64 indexing is only legal for SGPR.
-  Optional<int64_t> IdxVal = getConstantVRegVal(MI.getOperand(2).getReg(), MRI);
-  if (!IdxVal) // Dynamic case will be selected to register indexing.
-    return true;
-
-  Register Dst = MI.getOperand(0).getReg();
-  Register Vec = MI.getOperand(1).getReg();
-
-  LLT VecTy = MRI.getType(Vec);
-  LLT EltTy = VecTy.getElementType();
-  assert(EltTy == MRI.getType(Dst));
-
-  B.setInstr(MI);
-
-  if (IdxVal.getValue() < VecTy.getNumElements())
-    B.buildExtract(Dst, Vec, IdxVal.getValue() * EltTy.getSizeInBits());
-  else
-    B.buildUndef(Dst);
-
-  MI.eraseFromParent();
-  return true;
-}
-
-bool AMDGPULegalizerInfo::legalizeInsertVectorElt(
-  MachineInstr &MI, MachineRegisterInfo &MRI,
-  MachineIRBuilder &B) const {
-  // TODO: Should move some of this into LegalizerHelper.
-
-  // TODO: Promote dynamic indexing of s16 to s32
-  // TODO: Dynamic s64 indexing is only legal for SGPR.
-  Optional<int64_t> IdxVal = getConstantVRegVal(MI.getOperand(3).getReg(), MRI);
-  if (!IdxVal) // Dynamic case will be selected to register indexing.
-    return true;
-
-  Register Dst = MI.getOperand(0).getReg();
-  Register Vec = MI.getOperand(1).getReg();
-  Register Ins = MI.getOperand(2).getReg();
-
-  LLT VecTy = MRI.getType(Vec);
-  LLT EltTy = VecTy.getElementType();
-  assert(EltTy == MRI.getType(Ins));
-
-  B.setInstr(MI);
-
-  if (IdxVal.getValue() < VecTy.getNumElements())
-    B.buildInsert(Dst, Vec, Ins, IdxVal.getValue() * EltTy.getSizeInBits());
-  else
-    B.buildUndef(Dst);
-
-  MI.eraseFromParent();
-  return true;
 }
 
 // Return the use branch instruction, otherwise null if the usage is invalid.

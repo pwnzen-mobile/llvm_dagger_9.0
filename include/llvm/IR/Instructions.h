@@ -50,6 +50,8 @@ class APInt;
 class ConstantInt;
 class DataLayout;
 class LLVMContext;
+class CallInst;
+
 
 //===----------------------------------------------------------------------===//
 //                                AllocaInst Class

@@ -250,7 +250,7 @@ void X86WinAllocaExpander::lower(MachineInstr* MI, Lowering L) {
 
       // Do the probe.
       STI->getFrameLowering()->emitStackProbe(*MBB->getParent(), *MBB, MI, DL,
-                                              /*InProlog=*/false);
+                                              /*InPrologue=*/false);
     } else {
       // Sub
       BuildMI(*MBB, I, DL,

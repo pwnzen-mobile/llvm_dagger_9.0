@@ -32,9 +32,6 @@ private:
 public:
   X86LegalizerInfo(const X86Subtarget &STI, const X86TargetMachine &TM);
 
-  bool legalizeIntrinsic(MachineInstr &MI, MachineRegisterInfo &MRI,
-                         MachineIRBuilder &MIRBuilder) const override;
-
 private:
   void setLegalizerInfo32bit();
   void setLegalizerInfo64bit();

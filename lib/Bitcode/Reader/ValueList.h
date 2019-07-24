@@ -46,15 +46,8 @@ class BitcodeReaderValueList {
   ResolveConstantsTy ResolveConstants;
   LLVMContext &Context;
 
-  /// Maximum number of valid references. Forward references exceeding the
-  /// maximum must be invalid.
-  unsigned RefsUpperBound;
-
 public:
-  BitcodeReaderValueList(LLVMContext &C, size_t RefsUpperBound)
-      : Context(C),
-        RefsUpperBound(std::min((size_t)std::numeric_limits<unsigned>::max(),
-                                RefsUpperBound)) {}
+  BitcodeReaderValueList(LLVMContext &C) : Context(C) {}
 
   ~BitcodeReaderValueList() {
     assert(ResolveConstants.empty() && "Constants not resolved?");

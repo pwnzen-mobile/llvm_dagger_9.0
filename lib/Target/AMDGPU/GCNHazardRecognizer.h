@@ -16,7 +16,6 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/ScheduleHazardRecognizer.h"
-#include "llvm/CodeGen/TargetSchedule.h"
 #include <list>
 
 namespace llvm {
@@ -47,7 +46,6 @@ private:
   const GCNSubtarget &ST;
   const SIInstrInfo &TII;
   const SIRegisterInfo &TRI;
-  TargetSchedModel TSchedModel;
 
   /// RegUnits of uses in the current soft memory clause.
   BitVector ClauseUses;
@@ -93,9 +91,6 @@ private:
   bool fixSMEMtoVectorWriteHazards(MachineInstr *MI);
   bool fixVcmpxExecWARHazard(MachineInstr *MI);
   bool fixLdsBranchVmemWARHazard(MachineInstr *MI);
-
-  int checkMAIHazards(MachineInstr *MI);
-  int checkMAILdStHazards(MachineInstr *MI);
 
 public:
   GCNHazardRecognizer(const MachineFunction &MF);

@@ -8,7 +8,6 @@
 
 #include "llvm/MC/MCExpr.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/MC/MCAsmBackend.h"
@@ -43,15 +42,10 @@ void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
   switch (getKind()) {
   case MCExpr::Target:
     return cast<MCTargetExpr>(this)->printImpl(OS, MAI);
-  case MCExpr::Constant: {
-    auto Value = cast<MCConstantExpr>(*this).getValue();
-    auto PrintInHex = cast<MCConstantExpr>(*this).useHexFormat();
-    if (PrintInHex)
-      OS << "0x" << Twine::utohexstr(Value);
-    else
-      OS << Value;
+  case MCExpr::Constant:
+    OS << cast<MCConstantExpr>(*this).getValue();
     return;
-  }
+
   case MCExpr::SymbolRef: {
     const MCSymbolRefExpr &SRE = cast<MCSymbolRefExpr>(*this);
     const MCSymbol &Sym = SRE.getSymbol();
@@ -166,9 +160,8 @@ const MCUnaryExpr *MCUnaryExpr::create(Opcode Opc, const MCExpr *Expr,
   return new (Ctx) MCUnaryExpr(Opc, Expr, Loc);
 }
 
-const MCConstantExpr *MCConstantExpr::create(int64_t Value, MCContext &Ctx,
-                                             bool PrintInHex) {
-  return new (Ctx) MCConstantExpr(Value, PrintInHex);
+const MCConstantExpr *MCConstantExpr::create(int64_t Value, MCContext &Ctx) {
+  return new (Ctx) MCConstantExpr(Value);
 }
 
 /* *** */
@@ -577,24 +570,6 @@ static void AttemptToFoldSymbolOffsetDifference(
   A = B = nullptr;
 }
 
-static bool canFold(const MCAssembler *Asm, const MCSymbolRefExpr *A,
-                    const MCSymbolRefExpr *B, bool InSet) {
-  if (InSet)
-    return true;
-
-  if (!Asm->getBackend().requiresDiffExpressionRelocations())
-    return true;
-
-  const MCSymbol &CheckSym = A ? A->getSymbol() : B->getSymbol();
-  if (!CheckSym.isInSection())
-    return true;
-
-  if (!CheckSym.getSection().hasInstructions())
-    return true;
-
-  return false;
-}
-
 /// Evaluate the result of an add between (conceptually) two MCValues.
 ///
 /// This routine conceptually attempts to construct an MCValue:
@@ -635,7 +610,8 @@ EvaluateSymbolicAdd(const MCAssembler *Asm, const MCAsmLayout *Layout,
   // the backend requires this to be emitted as individual relocations, unless
   // the InSet flag is set to get the current difference anyway (used for
   // example to calculate symbol sizes).
-  if (Asm && canFold(Asm, LHS_A, LHS_B, InSet)) {
+  if (Asm &&
+      (InSet || !Asm->getBackend().requiresDiffExpressionRelocations())) {
     // First, fold out any differences which are fully resolved. By
     // reassociating terms in
     //   Result = (LHS_A - LHS_B + LHS_Cst) + (RHS_A - RHS_B + RHS_Cst).

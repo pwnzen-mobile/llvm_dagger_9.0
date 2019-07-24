@@ -103,12 +103,10 @@ public:
   void EmitBytes(StringRef Data) { OS->EmitBytes(Data); }
 
   void EmitIntValue(uint64_t Value, unsigned Size) {
-    OS->EmitIntValueInHex(Value, Size);
+    OS->EmitIntValue(Value, Size);
   }
 
   void EmitBinaryData(StringRef Data) { OS->EmitBinaryData(Data); }
-
-  void AddComment(const Twine &T) { OS->AddComment(T); }
 
 private:
   MCStreamer *OS = nullptr;
@@ -617,13 +615,6 @@ emitNullTerminatedSymbolName(MCStreamer &OS, StringRef S,
   OS.EmitBytes(NullTerminatedString);
 }
 
-static StringRef getTypeLeafName(TypeLeafKind TypeKind) {
-  for (const EnumEntry<TypeLeafKind> &EE : getTypeLeafNames())
-    if (EE.Value == TypeKind)
-      return EE.Name;
-  return "";
-}
-
 void CodeViewDebug::emitTypeInformation() {
   if (TypeTable.empty())
     return;
@@ -668,12 +659,8 @@ void CodeViewDebug::emitTypeInformation() {
 
     auto RecordLen = Record.length();
     auto RecordKind = Record.kind();
-    if (OS.isVerboseAsm())
-      CVMCOS.AddComment("Record length");
-    CVMCOS.EmitIntValue(RecordLen - 2, 2);
-    if (OS.isVerboseAsm())
-      CVMCOS.AddComment("Record kind: " + getTypeLeafName(RecordKind));
-    CVMCOS.EmitIntValue(RecordKind, sizeof(RecordKind));
+    OS.EmitIntValue(RecordLen - 2, 2);
+    OS.EmitIntValue(RecordKind, sizeof(RecordKind));
 
     Error E = codeview::visitTypeRecord(Record, *B, Pipeline);
 
@@ -1135,7 +1122,7 @@ void CodeViewDebug::emitDebugInfoForFunction(const Function *GV,
       if (!BeginLabel->isDefined() || !EndLabel->isDefined())
         continue;
 
-      const DIType *DITy = std::get<2>(HeapAllocSite);
+      DIType *DITy = std::get<2>(HeapAllocSite);
       MCSymbol *HeapAllocEnd = beginSymbolRecord(SymbolKind::S_HEAPALLOCSITE);
       OS.AddComment("Call site offset");
       OS.EmitCOFFSecRel32(BeginLabel, /*Offset=*/0);

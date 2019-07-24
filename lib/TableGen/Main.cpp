@@ -83,6 +83,7 @@ int llvm::TableGenMain(char *argv0, TableGenMainFn *MainFn) {
   // Parse the input file.
   ErrorOr<std::unique_ptr<MemoryBuffer>> FileOrErr =
       MemoryBuffer::getFileOrSTDIN(InputFilename);
+      errs()<<"input file name : "<<InputFilename<<"\n";
   if (std::error_code EC = FileOrErr.getError())
     return reportError(argv0, "Could not open input file '" + InputFilename +
                                   "': " + EC.message() + "\n");
@@ -102,6 +103,7 @@ int llvm::TableGenMain(char *argv0, TableGenMainFn *MainFn) {
   // Write output to memory.
   std::string OutString;
   raw_string_ostream Out(OutString);
+  //errs()<<"std::string : "<<OutString<<"\n";
   if (MainFn(Out, Records))
     return 1;
 

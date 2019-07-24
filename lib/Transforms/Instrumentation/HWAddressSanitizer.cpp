@@ -277,22 +277,12 @@ public:
 
   StringRef getPassName() const override { return "HWAddressSanitizer"; }
 
-  bool doInitialization(Module &M) override {
-    HWASan = llvm::make_unique<HWAddressSanitizer>(M, CompileKernel, Recover);
-    return true;
-  }
-
   bool runOnFunction(Function &F) override {
-    return HWASan->sanitizeFunction(F);
-  }
-
-  bool doFinalization(Module &M) override {
-    HWASan.reset();
-    return false;
+    HWAddressSanitizer HWASan(*F.getParent(), CompileKernel, Recover);
+    return HWASan.sanitizeFunction(F);
   }
 
 private:
-  std::unique_ptr<HWAddressSanitizer> HWASan;
   bool CompileKernel;
   bool Recover;
 };
@@ -319,13 +309,10 @@ FunctionPass *llvm::createHWAddressSanitizerLegacyPassPass(bool CompileKernel,
 HWAddressSanitizerPass::HWAddressSanitizerPass(bool CompileKernel, bool Recover)
     : CompileKernel(CompileKernel), Recover(Recover) {}
 
-PreservedAnalyses HWAddressSanitizerPass::run(Module &M,
-                                              ModuleAnalysisManager &MAM) {
-  HWAddressSanitizer HWASan(M, CompileKernel, Recover);
-  bool Modified = false;
-  for (Function &F : M)
-    Modified |= HWASan.sanitizeFunction(F);
-  if (Modified)
+PreservedAnalyses HWAddressSanitizerPass::run(Function &F,
+                                              FunctionAnalysisManager &FAM) {
+  HWAddressSanitizer HWASan(*F.getParent(), CompileKernel, Recover);
+  if (HWASan.sanitizeFunction(F))
     return PreservedAnalyses::none();
   return PreservedAnalyses::all();
 }
@@ -367,7 +354,7 @@ void HWAddressSanitizer::initializeModule(Module &M) {
 
   if (!TargetTriple.isAndroid()) {
     Constant *C = M.getOrInsertGlobal("__hwasan_tls", IntptrTy, [&] {
-      auto *GV = new GlobalVariable(M, IntptrTy, /*isConstant=*/false,
+      auto *GV = new GlobalVariable(M, IntptrTy, /*isConstantGlobal=*/false,
                                     GlobalValue::ExternalLinkage, nullptr,
                                     "__hwasan_tls", nullptr,
                                     GlobalVariable::InitialExecTLSModel);
@@ -778,9 +765,8 @@ Value *HWAddressSanitizer::getStackBaseTag(IRBuilder<> &IRB) {
   // FIXME: use addressofreturnaddress (but implement it in aarch64 backend
   // first).
   Module *M = IRB.GetInsertBlock()->getParent()->getParent();
-  auto GetStackPointerFn = Intrinsic::getDeclaration(
-      M, Intrinsic::frameaddress,
-      IRB.getInt8PtrTy(M->getDataLayout().getAllocaAddrSpace()));
+  auto GetStackPointerFn =
+      Intrinsic::getDeclaration(M, Intrinsic::frameaddress);
   Value *StackPointer = IRB.CreateCall(
       GetStackPointerFn, {Constant::getNullValue(IRB.getInt32Ty())});
 
@@ -913,10 +899,8 @@ void HWAddressSanitizer::emitPrologue(IRBuilder<> &IRB, bool WithFrameRecord) {
       PC = readRegister(IRB, "pc");
     else
       PC = IRB.CreatePtrToInt(F, IntptrTy);
-    Module *M = F->getParent();
-    auto GetStackPointerFn = Intrinsic::getDeclaration(
-        M, Intrinsic::frameaddress,
-        IRB.getInt8PtrTy(M->getDataLayout().getAllocaAddrSpace()));
+    auto GetStackPointerFn =
+        Intrinsic::getDeclaration(F->getParent(), Intrinsic::frameaddress);
     Value *SP = IRB.CreatePtrToInt(
         IRB.CreateCall(GetStackPointerFn,
                        {Constant::getNullValue(IRB.getInt32Ty())}),
@@ -1124,14 +1108,8 @@ bool HWAddressSanitizer::sanitizeFunction(Function &F) {
     uint64_t AlignedSize = alignTo(Size, Mapping.getAllocaAlignment());
     AI->setAlignment(std::max(AI->getAlignment(), 16u));
     if (Size != AlignedSize) {
-      Type *AllocatedType = AI->getAllocatedType();
-      if (AI->isArrayAllocation()) {
-        uint64_t ArraySize =
-            cast<ConstantInt>(AI->getArraySize())->getZExtValue();
-        AllocatedType = ArrayType::get(AllocatedType, ArraySize);
-      }
       Type *TypeWithPadding = StructType::get(
-          AllocatedType, ArrayType::get(Int8Ty, AlignedSize - Size));
+          AI->getAllocatedType(), ArrayType::get(Int8Ty, AlignedSize - Size));
       auto *NewAI = new AllocaInst(
           TypeWithPadding, AI->getType()->getAddressSpace(), nullptr, "", AI);
       NewAI->takeName(AI);
@@ -1139,8 +1117,10 @@ bool HWAddressSanitizer::sanitizeFunction(Function &F) {
       NewAI->setUsedWithInAlloca(AI->isUsedWithInAlloca());
       NewAI->setSwiftError(AI->isSwiftError());
       NewAI->copyMetadata(*AI);
-      auto *Bitcast = new BitCastInst(NewAI, AI->getType(), "", AI);
-      AI->replaceAllUsesWith(Bitcast);
+      Value *Zero = ConstantInt::get(Int32Ty, 0);
+      auto *GEP = GetElementPtrInst::Create(TypeWithPadding, NewAI,
+                                            {Zero, Zero}, "", AI);
+      AI->replaceAllUsesWith(GEP);
       AllocaToPaddedAllocaMap[AI] = NewAI;
     }
   }

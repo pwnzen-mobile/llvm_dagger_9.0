@@ -47,11 +47,9 @@ add_pdb_impl_folder(Native
   Native/HashTable.cpp
   Native/InfoStream.cpp
   Native/InfoStreamBuilder.cpp
-  Native/InjectedSourceStream.cpp
   Native/ModuleDebugStream.cpp
   Native/NativeCompilandSymbol.cpp
   Native/NativeEnumGlobals.cpp
-  Native/NativeEnumInjectedSources.cpp
   Native/NativeEnumModules.cpp
   Native/NativeEnumTypes.cpp
   Native/NativeExeSymbol.cpp

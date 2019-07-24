@@ -120,6 +120,7 @@ raw_ostream &dbgs();
 // LLVM_DEBUG(dbgs() << "Bitset contains: " << Bitset << "\n");
 //
 #define LLVM_DEBUG(X) DEBUG_WITH_TYPE(DEBUG_TYPE, X)
+#define DEBUG(X) DEBUG_WITH_TYPE(DEBUG_TYPE, X)
 
 } // end namespace llvm
 

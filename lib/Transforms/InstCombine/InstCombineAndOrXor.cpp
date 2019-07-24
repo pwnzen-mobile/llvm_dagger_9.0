@@ -160,14 +160,16 @@ Instruction *InstCombiner::OptAndOp(BinaryOperator *Op,
 }
 
 /// Emit a computation of: (V >= Lo && V < Hi) if Inside is true, otherwise
-/// (V < Lo || V >= Hi). This method expects that Lo < Hi. IsSigned indicates
+/// (V < Lo || V >= Hi). This method expects that Lo <= Hi. IsSigned indicates
 /// whether to treat V, Lo, and Hi as signed or not.
 Value *InstCombiner::insertRangeTest(Value *V, const APInt &Lo, const APInt &Hi,
                                      bool isSigned, bool Inside) {
-  assert((isSigned ? Lo.slt(Hi) : Lo.ult(Hi)) &&
-         "Lo is not < Hi in range emission code!");
+  assert((isSigned ? Lo.sle(Hi) : Lo.ule(Hi)) &&
+         "Lo is not <= Hi in range emission code!");
 
   Type *Ty = V->getType();
+  if (Lo == Hi)
+    return Inside ? ConstantInt::getFalse(Ty) : ConstantInt::getTrue(Ty);
 
   // V >= Min && V <  Hi --> V <  Hi
   // V <  Min || V >= Hi --> V >= Hi
@@ -965,7 +967,7 @@ static Value *foldSignedTruncationCheck(ICmpInst *ICmp0, ICmpInst *ICmp1,
     // Can it be decomposed into  icmp eq (X & Mask), 0  ?
     if (llvm::decomposeBitTestICmp(ICmp->getOperand(0), ICmp->getOperand(1),
                                    Pred, X, UnsetBitsMask,
-                                   /*LookThroughTrunc=*/false) &&
+                                   /*LookThruTrunc=*/false) &&
         Pred == ICmpInst::ICMP_EQ)
       return true;
     // Is it  icmp eq (X & Mask), 0  already?
@@ -1194,16 +1196,14 @@ Value *InstCombiner::foldAndOfICmps(ICmpInst *LHS, ICmpInst *RHS,
     default:
       llvm_unreachable("Unknown integer condition code!");
     case ICmpInst::ICMP_ULT:
-      // (X != 13 & X u< 14) -> X < 13
-      if (LHSC->getValue() == (RHSC->getValue() - 1))
+      if (LHSC == SubOne(RHSC)) // (X != 13 & X u< 14) -> X < 13
         return Builder.CreateICmpULT(LHS0, LHSC);
-      if (LHSC->isZero()) // (X != 0 & X u< 14) -> X-1 u< 13
+      if (LHSC->isZero()) // (X !=  0 & X u< 14) -> X-1 u< 13
         return insertRangeTest(LHS0, LHSC->getValue() + 1, RHSC->getValue(),
                                false, true);
       break; // (X != 13 & X u< 15) -> no change
     case ICmpInst::ICMP_SLT:
-      // (X != 13 & X s< 14) -> X < 13
-      if (LHSC->getValue() == (RHSC->getValue() - 1))
+      if (LHSC == SubOne(RHSC)) // (X != 13 & X s< 14) -> X < 13
         return Builder.CreateICmpSLT(LHS0, LHSC);
       break;                 // (X != 13 & X s< 15) -> no change
     case ICmpInst::ICMP_NE:
@@ -1216,8 +1216,7 @@ Value *InstCombiner::foldAndOfICmps(ICmpInst *LHS, ICmpInst *RHS,
     default:
       llvm_unreachable("Unknown integer condition code!");
     case ICmpInst::ICMP_NE:
-      // (X u> 13 & X != 14) -> X u> 14
-      if (RHSC->getValue() == (LHSC->getValue() + 1))
+      if (RHSC == AddOne(LHSC)) // (X u> 13 & X != 14) -> X u> 14
         return Builder.CreateICmp(PredL, LHS0, RHSC);
       break;                 // (X u> 13 & X != 15) -> no change
     case ICmpInst::ICMP_ULT: // (X u> 13 & X u< 15) -> (X-14) <u 1
@@ -1230,8 +1229,7 @@ Value *InstCombiner::foldAndOfICmps(ICmpInst *LHS, ICmpInst *RHS,
     default:
       llvm_unreachable("Unknown integer condition code!");
     case ICmpInst::ICMP_NE:
-      // (X s> 13 & X != 14) -> X s> 14
-      if (RHSC->getValue() == (LHSC->getValue() + 1))
+      if (RHSC == AddOne(LHSC)) // (X s> 13 & X != 14) -> X s> 14
         return Builder.CreateICmp(PredL, LHS0, RHSC);
       break;                 // (X s> 13 & X != 15) -> no change
     case ICmpInst::ICMP_SLT: // (X s> 13 & X s< 15) -> (X-14) s< 1

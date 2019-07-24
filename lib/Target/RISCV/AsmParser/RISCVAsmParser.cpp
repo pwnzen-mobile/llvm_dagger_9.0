@@ -1119,7 +1119,6 @@ OperandMatchResultTy RISCVAsmParser::parseImmediate(OperandVector &Operands) {
   default:
     return MatchOperand_NoMatch;
   case AsmToken::LParen:
-  case AsmToken::Dot:
   case AsmToken::Minus:
   case AsmToken::Plus:
   case AsmToken::Exclaim:

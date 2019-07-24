@@ -91,7 +91,6 @@ public:
 
   // PIC support
   virtual void emitDirectiveCpLoad(unsigned RegNo);
-  virtual void emitDirectiveCpLocal(unsigned RegNo);
   virtual bool emitDirectiveCpRestore(int Offset,
                                       function_ref<unsigned()> GetATReg,
                                       SMLoc IDLoc, const MCSubtargetInfo *STI);
@@ -200,7 +199,6 @@ protected:
   bool FrameInfoSet;
   int FrameOffset;
   unsigned FrameReg;
-  unsigned GPReg;
   unsigned ReturnReg;
 
 private:
@@ -276,7 +274,6 @@ public:
 
   // PIC support
   void emitDirectiveCpLoad(unsigned RegNo) override;
-  void emitDirectiveCpLocal(unsigned RegNo) override;
 
   /// Emit a .cprestore directive.  If the offset is out of range then it will
   /// be synthesized using the assembler temporary.
@@ -348,7 +345,6 @@ public:
 
   // PIC support
   void emitDirectiveCpLoad(unsigned RegNo) override;
-  void emitDirectiveCpLocal(unsigned RegNo) override;
   bool emitDirectiveCpRestore(int Offset, function_ref<unsigned()> GetATReg,
                               SMLoc IDLoc, const MCSubtargetInfo *STI) override;
   void emitDirectiveCpsetup(unsigned RegNo, int RegOrOffset,

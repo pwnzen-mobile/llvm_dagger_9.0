@@ -26,7 +26,7 @@ class HWAddressSanitizerPass : public PassInfoMixin<HWAddressSanitizerPass> {
 public:
   explicit HWAddressSanitizerPass(bool CompileKernel = false,
                                   bool Recover = false);
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
 
 private:
   bool CompileKernel;

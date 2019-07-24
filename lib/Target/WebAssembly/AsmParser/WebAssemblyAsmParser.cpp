@@ -308,8 +308,8 @@ public:
         Type == "i32x4" || Type == "i64x2" || Type == "f32x4" ||
         Type == "f64x2")
       return wasm::ValType::V128;
-    if (Type == "exnref")
-      return wasm::ValType::EXNREF;
+    if (Type == "except_ref")
+      return wasm::ValType::EXCEPT_REF;
     return Optional<wasm::ValType>();
   }
 
@@ -320,7 +320,7 @@ public:
         .Case("f32", WebAssembly::ExprType::F32)
         .Case("f64", WebAssembly::ExprType::F64)
         .Case("v128", WebAssembly::ExprType::V128)
-        .Case("exnref", WebAssembly::ExprType::Exnref)
+        .Case("except_ref", WebAssembly::ExprType::ExceptRef)
         .Case("void", WebAssembly::ExprType::Void)
         .Default(WebAssembly::ExprType::Invalid);
   }
@@ -347,42 +347,6 @@ public:
         WebAssemblyOperand::Integer, Int.getLoc(), Int.getEndLoc(),
         WebAssemblyOperand::IntOp{Val}));
     Parser.Lex();
-  }
-
-  bool parseSingleFloat(bool IsNegative, OperandVector &Operands) {
-    auto &Flt = Lexer.getTok();
-    double Val;
-    if (Flt.getString().getAsDouble(Val, false))
-      return error("Cannot parse real: ", Flt);
-    if (IsNegative)
-      Val = -Val;
-    Operands.push_back(make_unique<WebAssemblyOperand>(
-        WebAssemblyOperand::Float, Flt.getLoc(), Flt.getEndLoc(),
-        WebAssemblyOperand::FltOp{Val}));
-    Parser.Lex();
-    return false;
-  }
-
-  bool parseSpecialFloatMaybe(bool IsNegative, OperandVector &Operands) {
-    if (Lexer.isNot(AsmToken::Identifier))
-      return true;
-    auto &Flt = Lexer.getTok();
-    auto S = Flt.getString();
-    double Val;
-    if (S.compare_lower("infinity") == 0) {
-      Val = std::numeric_limits<double>::infinity();
-    } else if (S.compare_lower("nan") == 0) {
-      Val = std::numeric_limits<double>::quiet_NaN();
-    } else {
-      return true;
-    }
-    if (IsNegative)
-      Val = -Val;
-    Operands.push_back(make_unique<WebAssemblyOperand>(
-        WebAssemblyOperand::Float, Flt.getLoc(), Flt.getEndLoc(),
-        WebAssemblyOperand::FltOp{Val}));
-    Parser.Lex();
-    return false;
   }
 
   bool checkForP2AlignIfLoadStore(OperandVector &Operands, StringRef InstName) {
@@ -498,8 +462,6 @@ public:
       auto &Tok = Lexer.getTok();
       switch (Tok.getKind()) {
       case AsmToken::Identifier: {
-        if (!parseSpecialFloatMaybe(false, Operands))
-          break;
         auto &Id = Lexer.getTok();
         if (ExpectBlockType) {
           // Assume this identifier is a block_type.
@@ -524,18 +486,11 @@ public:
       }
       case AsmToken::Minus:
         Parser.Lex();
-        if (Lexer.is(AsmToken::Integer)) {
-          parseSingleInteger(true, Operands);
-          if (checkForP2AlignIfLoadStore(Operands, Name))
-            return true;
-        } else if(Lexer.is(AsmToken::Real)) {
-          if (parseSingleFloat(true, Operands))
-            return true;
-        } else if (!parseSpecialFloatMaybe(true, Operands)) {
-        } else {
-          return error("Expected numeric constant instead got: ",
-                       Lexer.getTok());
-        }
+        if (Lexer.isNot(AsmToken::Integer))
+          return error("Expected integer instead got: ", Lexer.getTok());
+        parseSingleInteger(true, Operands);
+        if (checkForP2AlignIfLoadStore(Operands, Name))
+          return true;
         break;
       case AsmToken::Integer:
         parseSingleInteger(false, Operands);
@@ -543,8 +498,13 @@ public:
           return true;
         break;
       case AsmToken::Real: {
-        if (parseSingleFloat(false, Operands))
-          return true;
+        double Val;
+        if (Tok.getString().getAsDouble(Val, false))
+          return error("Cannot parse real: ", Tok);
+        Operands.push_back(make_unique<WebAssemblyOperand>(
+            WebAssemblyOperand::Float, Tok.getLoc(), Tok.getEndLoc(),
+            WebAssemblyOperand::FltOp{Val}));
+        Parser.Lex();
         break;
       }
       case AsmToken::LCurly: {

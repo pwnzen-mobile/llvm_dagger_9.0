@@ -1046,8 +1046,12 @@ defaultRegAlloc("default",
                 useDefaultRegisterAllocator);
 
 static void initializeDefaultRegisterAllocatorOnce() {
-  if (!RegisterRegAlloc::getDefault())
+  RegisterRegAlloc::FunctionPassCtor Ctor = RegisterRegAlloc::getDefault();
+
+  if (!Ctor) {
+    Ctor = RegAlloc;
     RegisterRegAlloc::setDefault(RegAlloc);
+  }
 }
 
 /// Instantiate the default register allocator pass for this target for either

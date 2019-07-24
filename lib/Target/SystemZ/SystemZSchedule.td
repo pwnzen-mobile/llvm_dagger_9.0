@@ -59,7 +59,6 @@ def VBU : SchedWrite; // Virtual branching unit
 
 def MCD : SchedWrite; // Millicode
 
-include "SystemZScheduleArch13.td"
 include "SystemZScheduleZ14.td"
 include "SystemZScheduleZ13.td"
 include "SystemZScheduleZEC12.td"

@@ -436,6 +436,10 @@ namespace ISD {
     /// Byte Swap and Counting operators.
     BSWAP, CTTZ, CTLZ, CTPOP, BITREVERSE,
 
+    /// [SU]ABSDIFF - Signed/Unsigned absolute difference of two input integer
+    /// vector. These nodes are generated from llvm.*absdiff* intrinsics.
+    SABSDIFF, UABSDIFF,
+
     /// Bit counting operators with an undefined result for zero inputs.
     CTTZ_ZERO_UNDEF, CTLZ_ZERO_UNDEF,
 
@@ -620,6 +624,10 @@ namespace ISD {
     ///
     /// The return value of (FMINNUM 0.0, -0.0) could be either 0.0 or -0.0.
     FMINNUM, FMAXNUM,
+
+      /// FMINNAN/FMAXNAN - Behave identically to FMINNUM/FMAXNUM, except that
+    /// when a single input is NaN, NaN is returned.
+    FMINNAN, FMAXNAN,
 
     /// FMINNUM_IEEE/FMAXNUM_IEEE - Perform floating-point minimum or maximum on
     /// two values, following the IEEE-754 2008 definition. This differs from

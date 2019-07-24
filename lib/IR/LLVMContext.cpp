@@ -32,6 +32,13 @@
 
 using namespace llvm;
 
+
+static ManagedStatic<LLVMContext> GlobalContext;
+
+LLVMContext& llvm::getGlobalContext() {  //添加了静态获取Context的接口
+  return *GlobalContext;
+}
+
 LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
   // Create the fixed metadata kinds. This is done in the same order as the
   // MD_* enum values so that they correspond.

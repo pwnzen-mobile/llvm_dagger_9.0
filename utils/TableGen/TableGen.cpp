@@ -38,6 +38,7 @@ enum ActionType {
   GenDFAPacketizer,
   GenFastISel,
   GenSubtarget,
+  GenSemantics,
   GenIntrinsicEnums,
   GenIntrinsicImpl,
   GenTgtIntrinsicEnums,
@@ -96,6 +97,8 @@ namespace {
                                "Generate a \"fast\" instruction selector"),
                     clEnumValN(GenSubtarget, "gen-subtarget",
                                "Generate subtarget enumerations"),
+                    clEnumValN(GenSemantics, "gen-semantics",
+                               "Generate DC instruction semantics"),
                     clEnumValN(GenIntrinsicEnums, "gen-intrinsic-enums",
                                "Generate intrinsic enums"),
                     clEnumValN(GenIntrinsicImpl, "gen-intrinsic-impl",
@@ -138,6 +141,7 @@ cl::opt<bool, true>
                    cl::location(TimeRegions));
 
 bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
+ 
   switch (Action) {
   case PrintRecords:
     OS << Records;           // No argument, dump all contents
@@ -186,6 +190,10 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenSubtarget:
     EmitSubtarget(Records, OS);
+    break;
+  case GenSemantics:
+    errs()<<"start to gen semantics\n";
+    EmitSemantics(Records, OS);
     break;
   case GenIntrinsicEnums:
     EmitIntrinsicEnums(Records, OS);

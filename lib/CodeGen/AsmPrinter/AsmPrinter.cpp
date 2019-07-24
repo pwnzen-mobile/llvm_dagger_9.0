@@ -100,7 +100,6 @@
 #include "llvm/MC/SectionKind.h"
 #include "llvm/Pass.h"
 #include "llvm/Remarks/Remark.h"
-#include "llvm/Remarks/RemarkFormat.h"
 #include "llvm/Remarks/RemarkStringTable.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
@@ -496,7 +495,7 @@ void AsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
   SectionKind GVKind = TargetLoweringObjectFile::getKindForGlobal(GV, TM);
 
   const DataLayout &DL = GV->getParent()->getDataLayout();
-  uint64_t Size = DL.getTypeAllocSize(GV->getValueType());
+  uint64_t Size = DL.getTypeAllocSize(GV->getType()->getElementType());
 
   // If the alignment is specified, we *must* obey it.  Overaligning a global
   // with a specified alignment is a prompt way to break globals emitted to
@@ -1301,7 +1300,7 @@ void AsmPrinter::emitGlobalIndirectSymbol(Module &M,
   else
     assert(GIS.hasLocalLinkage() && "Invalid alias or ifunc linkage");
 
-  bool IsFunction = GIS.getValueType()->isFunctionTy();
+  bool IsFunction = GIS.getType()->getPointerElementType()->isFunctionTy();
 
   // Treat bitcasts of functions as functions also. This is important at least
   // on WebAssembly where object and function addresses can't alias each other.

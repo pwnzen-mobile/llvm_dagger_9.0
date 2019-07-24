@@ -171,13 +171,13 @@ public:
 
   /// Represents the size of a sequence in bytes. (Some instructions vary
   /// widely in size, so just counting the instructions isn't very useful.)
-  unsigned SequenceSize = 0;
+  unsigned SequenceSize;
 
   /// Target-defined overhead of constructing a frame for this function.
-  unsigned FrameOverhead = 0;
+  unsigned FrameOverhead;
 
   /// Target-defined identifier for constructing a frame for this function.
-  unsigned FrameConstructionID = 0;
+  unsigned FrameConstructionID;
 
   /// Return the number of candidates for this \p OutlinedFunction.
   unsigned getOccurrenceCount() const { return Candidates.size(); }

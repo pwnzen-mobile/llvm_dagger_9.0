@@ -180,6 +180,18 @@ namespace llvm {
       return ArrayRef<T>(data()+N, M);
     }
 
+     /// slice(n, isSwift) - Chop off the first N elements of the array.
+    /// try to fixup the swift class resolve error.
+    ArrayRef<T> slice(size_t N, bool isSwift, bool object) const {
+      //errs() << "[+]N: " << N << "\tsize(): " << size() << "\n";
+      assert(N <= size() && "Invalid specifier");
+      if (isSwift) {
+        return ArrayRef<T>(data()+N-1, size()-N);
+      }
+      return ArrayRef<T>(data()+N, size()-N);
+    }
+    
+
     /// slice(n) - Chop off the first N elements of the array.
     ArrayRef<T> slice(size_t N) const { return slice(N, size() - N); }
 

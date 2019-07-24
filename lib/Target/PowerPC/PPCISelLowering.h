@@ -669,11 +669,6 @@ namespace llvm {
                                    ISD::MemIndexedMode &AM,
                                    SelectionDAG &DAG) const override;
 
-    /// SelectAddressEVXRegReg - Given the specified addressed, check to see if
-    /// it can be more efficiently represented as [r+imm].
-    bool SelectAddressEVXRegReg(SDValue N, SDValue &Base, SDValue &Index,
-                                SelectionDAG &DAG) const;
-
     /// SelectAddressRegReg - Given the specified addressed, check to see if it
     /// can be more efficiently represented as [r+imm]. If \p EncodingAlignment
     /// is non-zero, only accept displacement which is not suitable for [r+imm].
@@ -832,18 +827,6 @@ namespace llvm {
 
     bool convertSelectOfConstantsToMath(EVT VT) const override {
       return true;
-    }
-
-    bool isDesirableToTransformToIntegerOp(unsigned Opc,
-                                           EVT VT) const override {
-      // Only handle float load/store pair because float(fpr) load/store
-      // instruction has more cycles than integer(gpr) load/store in PPC.
-      if (Opc != ISD::LOAD && Opc != ISD::STORE)
-        return false;
-      if (VT != MVT::f32 && VT != MVT::f64)
-        return false;
-
-      return true; 
     }
 
     // Returns true if the address of the global is stored in TOC entry.

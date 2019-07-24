@@ -22,18 +22,18 @@ APSInt::APSInt(StringRef Str) {
 
   // (Over-)estimate the required number of bits.
   unsigned NumBits = ((Str.size() * 64) / 19) + 2;
-  APInt Tmp(NumBits, Str, /*radix=*/10);
+  APInt Tmp(NumBits, Str, /*Radix=*/10);
   if (Str[0] == '-') {
     unsigned MinBits = Tmp.getMinSignedBits();
     if (MinBits > 0 && MinBits < NumBits)
       Tmp = Tmp.trunc(MinBits);
-    *this = APSInt(Tmp, /*isUnsigned=*/false);
+    *this = APSInt(Tmp, /*IsUnsigned=*/false);
     return;
   }
   unsigned ActiveBits = Tmp.getActiveBits();
   if (ActiveBits > 0 && ActiveBits < NumBits)
     Tmp = Tmp.trunc(ActiveBits);
-  *this = APSInt(Tmp, /*isUnsigned=*/true);
+  *this = APSInt(Tmp, /*IsUnsigned=*/true);
 }
 
 void APSInt::Profile(FoldingSetNodeID& ID) const {

@@ -842,10 +842,8 @@ void SanitizerCoverageModule::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
   }
   if (Options.StackDepth && IsEntryBB && !IsLeafFunc) {
     // Check stack depth.  If it's the deepest so far, record it.
-    Module *M = F.getParent();
-    Function *GetFrameAddr = Intrinsic::getDeclaration(
-        M, Intrinsic::frameaddress,
-        IRB.getInt8PtrTy(M->getDataLayout().getAllocaAddrSpace()));
+    Function *GetFrameAddr =
+        Intrinsic::getDeclaration(F.getParent(), Intrinsic::frameaddress);
     auto FrameAddrPtr =
         IRB.CreateCall(GetFrameAddr, {Constant::getNullValue(Int32Ty)});
     auto FrameAddrInt = IRB.CreatePtrToInt(FrameAddrPtr, IntptrTy);

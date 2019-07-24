@@ -66,26 +66,6 @@ void DWARFDebugLine::ContentTypeTracker::trackContentType(
 
 DWARFDebugLine::Prologue::Prologue() { clear(); }
 
-bool DWARFDebugLine::Prologue::hasFileAtIndex(uint64_t FileIndex) const {
-  uint16_t DwarfVersion = getVersion();
-  assert(DwarfVersion != 0 &&
-         "line table prologue has no dwarf version information");
-  if (DwarfVersion >= 5)
-    return FileIndex < FileNames.size();
-  return FileIndex != 0 && FileIndex <= FileNames.size();
-}
-
-const llvm::DWARFDebugLine::FileNameEntry &
-DWARFDebugLine::Prologue::getFileNameEntry(uint64_t Index) const {
-  uint16_t DwarfVersion = getVersion();
-  assert(DwarfVersion != 0 &&
-         "line table prologue has no dwarf version information");
-  // In DWARF v5 the file names are 0-indexed.
-  if (DwarfVersion >= 5)
-    return FileNames[Index];
-  return FileNames[Index - 1];
-}
-
 void DWARFDebugLine::Prologue::clear() {
   TotalLength = PrologueLength = 0;
   SegSelectorSize = 0;
@@ -187,24 +167,18 @@ parseV2DirFileTables(const DWARFDataExtractor &DebugLineData,
 }
 
 // Parse v5 directory/file entry content descriptions.
-// Returns the descriptors, or an error if we did not find a path or ran off
-// the end of the prologue.
-static llvm::Expected<ContentDescriptors>
-parseV5EntryFormat(const DWARFDataExtractor &DebugLineData, uint32_t *OffsetPtr,
-                   uint64_t EndPrologueOffset,
-                   DWARFDebugLine::ContentTypeTracker *ContentTypes) {
+// Returns the descriptors, or an empty vector if we did not find a path or
+// ran off the end of the prologue.
+static ContentDescriptors
+parseV5EntryFormat(const DWARFDataExtractor &DebugLineData, uint32_t
+    *OffsetPtr, uint64_t EndPrologueOffset, DWARFDebugLine::ContentTypeTracker
+    *ContentTypes) {
   ContentDescriptors Descriptors;
   int FormatCount = DebugLineData.getU8(OffsetPtr);
   bool HasPath = false;
   for (int I = 0; I != FormatCount; ++I) {
     if (*OffsetPtr >= EndPrologueOffset)
-      return createStringError(
-          errc::invalid_argument,
-          "failed to parse entry content descriptions at offset "
-          "0x%8.8" PRIx32
-          " because offset extends beyond the prologue end at offset "
-          "0x%8.8" PRIx64,
-          *OffsetPtr, EndPrologueOffset);
+      return ContentDescriptors();
     ContentDescriptor Descriptor;
     Descriptor.Type =
       dwarf::LineNumberEntryFormat(DebugLineData.getULEB128(OffsetPtr));
@@ -215,15 +189,10 @@ parseV5EntryFormat(const DWARFDataExtractor &DebugLineData, uint32_t *OffsetPtr,
       ContentTypes->trackContentType(Descriptor.Type);
     Descriptors.push_back(Descriptor);
   }
-
-  if (!HasPath)
-    return createStringError(errc::invalid_argument,
-                             "failed to parse entry content descriptions"
-                             " because no path was found");
-  return Descriptors;
+  return HasPath ? Descriptors : ContentDescriptors();
 }
 
-static Error
+static bool
 parseV5DirFileTables(const DWARFDataExtractor &DebugLineData,
                      uint32_t *OffsetPtr, uint64_t EndPrologueOffset,
                      const dwarf::FormParams &FormParams,
@@ -232,65 +201,48 @@ parseV5DirFileTables(const DWARFDataExtractor &DebugLineData,
                      std::vector<DWARFFormValue> &IncludeDirectories,
                      std::vector<DWARFDebugLine::FileNameEntry> &FileNames) {
   // Get the directory entry description.
-  llvm::Expected<ContentDescriptors> DirDescriptors =
+  ContentDescriptors DirDescriptors =
       parseV5EntryFormat(DebugLineData, OffsetPtr, EndPrologueOffset, nullptr);
-  if (!DirDescriptors)
-    return DirDescriptors.takeError();
+  if (DirDescriptors.empty())
+    return false;
 
   // Get the directory entries, according to the format described above.
   int DirEntryCount = DebugLineData.getU8(OffsetPtr);
   for (int I = 0; I != DirEntryCount; ++I) {
     if (*OffsetPtr >= EndPrologueOffset)
-      return createStringError(
-          errc::invalid_argument,
-          "failed to parse directory entry at offset "
-          "0x%8.8" PRIx32
-          " because offset extends beyond the prologue end at offset "
-          "0x%8.8" PRIx64,
-          *OffsetPtr, EndPrologueOffset);
-    for (auto Descriptor : *DirDescriptors) {
+      return false;
+    for (auto Descriptor : DirDescriptors) {
       DWARFFormValue Value(Descriptor.Form);
       switch (Descriptor.Type) {
       case DW_LNCT_path:
         if (!Value.extractValue(DebugLineData, OffsetPtr, FormParams, &Ctx, U))
-          return createStringError(errc::invalid_argument,
-                                   "failed to parse directory entry because "
-                                   "extracting the form value failed.");
+          return false;
         IncludeDirectories.push_back(Value);
         break;
       default:
         if (!Value.skipValue(DebugLineData, OffsetPtr, FormParams))
-          return createStringError(errc::invalid_argument,
-                                   "failed to parse directory entry because "
-                                   "skipping the form value failed.");
+          return false;
       }
     }
   }
 
   // Get the file entry description.
-  llvm::Expected<ContentDescriptors> FileDescriptors = parseV5EntryFormat(
-      DebugLineData, OffsetPtr, EndPrologueOffset, &ContentTypes);
-  if (!FileDescriptors)
-    return FileDescriptors.takeError();
+  ContentDescriptors FileDescriptors =
+      parseV5EntryFormat(DebugLineData, OffsetPtr, EndPrologueOffset,
+          &ContentTypes);
+  if (FileDescriptors.empty())
+    return false;
 
   // Get the file entries, according to the format described above.
   int FileEntryCount = DebugLineData.getU8(OffsetPtr);
   for (int I = 0; I != FileEntryCount; ++I) {
     if (*OffsetPtr >= EndPrologueOffset)
-      return createStringError(
-          errc::invalid_argument,
-          "failed to parse file entry at offset "
-          "0x%8.8" PRIx32
-          " because offset extends beyond the prologue end at offset "
-          "0x%8.8" PRIx64,
-          *OffsetPtr, EndPrologueOffset);
+      return false;
     DWARFDebugLine::FileNameEntry FileEntry;
-    for (auto Descriptor : *FileDescriptors) {
+    for (auto Descriptor : FileDescriptors) {
       DWARFFormValue Value(Descriptor.Form);
       if (!Value.extractValue(DebugLineData, OffsetPtr, FormParams, &Ctx, U))
-        return createStringError(errc::invalid_argument,
-                                 "failed to parse file entry because "
-                                 "extracting the form value failed.");
+        return false;
       switch (Descriptor.Type) {
       case DW_LNCT_path:
         FileEntry.Name = Value;
@@ -308,10 +260,7 @@ parseV5DirFileTables(const DWARFDataExtractor &DebugLineData,
         FileEntry.Length = Value.getAsUnsignedConstant().getValue();
         break;
       case DW_LNCT_MD5:
-        if (!Value.getAsBlock() || Value.getAsBlock().getValue().size() != 16)
-          return createStringError(
-              errc::invalid_argument,
-              "failed to parse file entry because the MD5 hash is invalid");
+        assert(Value.getAsBlock().getValue().size() == 16);
         std::uninitialized_copy_n(Value.getAsBlock().getValue().begin(), 16,
                                   FileEntry.Checksum.Bytes.begin());
         break;
@@ -321,7 +270,7 @@ parseV5DirFileTables(const DWARFDataExtractor &DebugLineData,
     }
     FileNames.push_back(FileEntry);
   }
-  return Error::success();
+  return true;
 }
 
 Error DWARFDebugLine::Prologue::parse(const DWARFDataExtractor &DebugLineData,
@@ -331,11 +280,11 @@ Error DWARFDebugLine::Prologue::parse(const DWARFDataExtractor &DebugLineData,
   const uint64_t PrologueOffset = *OffsetPtr;
 
   clear();
-  TotalLength = DebugLineData.getRelocatedValue(4, OffsetPtr);
+  TotalLength = DebugLineData.getU32(OffsetPtr);
   if (TotalLength == UINT32_MAX) {
     FormParams.Format = dwarf::DWARF64;
     TotalLength = DebugLineData.getU64(OffsetPtr);
-  } else if (TotalLength >= 0xfffffff0) {
+  } else if (TotalLength >= 0xffffff00) {
     return createStringError(errc::invalid_argument,
         "parsing line table prologue at offset 0x%8.8" PRIx64
         " unsupported reserved unit length found of value 0x%8.8" PRIx64,
@@ -356,8 +305,7 @@ Error DWARFDebugLine::Prologue::parse(const DWARFDataExtractor &DebugLineData,
     SegSelectorSize = DebugLineData.getU8(OffsetPtr);
   }
 
-  PrologueLength =
-      DebugLineData.getRelocatedValue(sizeofPrologueLength(), OffsetPtr);
+  PrologueLength = DebugLineData.getUnsigned(OffsetPtr, sizeofPrologueLength());
   const uint64_t EndPrologueOffset = PrologueLength + *OffsetPtr;
   MinInstLength = DebugLineData.getU8(OffsetPtr);
   if (getVersion() >= 4)
@@ -374,17 +322,14 @@ Error DWARFDebugLine::Prologue::parse(const DWARFDataExtractor &DebugLineData,
   }
 
   if (getVersion() >= 5) {
-    if (Error e = parseV5DirFileTables(
-            DebugLineData, OffsetPtr, EndPrologueOffset, FormParams, Ctx, U,
-            ContentTypes, IncludeDirectories, FileNames)) {
-      return joinErrors(
-          createStringError(
-              errc::invalid_argument,
-              "parsing line table prologue at 0x%8.8" PRIx64
-              " found an invalid directory or file table description at"
-              " 0x%8.8" PRIx32,
-              PrologueOffset, *OffsetPtr),
-          std::move(e));
+    if (!parseV5DirFileTables(DebugLineData, OffsetPtr, EndPrologueOffset,
+                              FormParams, Ctx, U, ContentTypes,
+                              IncludeDirectories, FileNames)) {
+      return createStringError(errc::invalid_argument,
+          "parsing line table prologue at 0x%8.8" PRIx64
+          " found an invalid directory or file table description at"
+          " 0x%8.8" PRIx64,
+          PrologueOffset, (uint64_t)*OffsetPtr);
     }
   } else
     parseV2DirFileTables(DebugLineData, OffsetPtr, EndPrologueOffset,
@@ -394,8 +339,8 @@ Error DWARFDebugLine::Prologue::parse(const DWARFDataExtractor &DebugLineData,
     return createStringError(errc::invalid_argument,
                        "parsing line table prologue at 0x%8.8" PRIx64
                        " should have ended at 0x%8.8" PRIx64
-                       " but it ended at 0x%8.8" PRIx32,
-                       PrologueOffset, EndPrologueOffset, *OffsetPtr);
+                       " but it ended at 0x%8.8" PRIx64,
+                       PrologueOffset, EndPrologueOffset, (uint64_t)*OffsetPtr);
   return Error::success();
 }
 
@@ -789,11 +734,11 @@ Error DWARFDebugLine::LineTable::parse(
         // requires the use of DW_LNS_advance_pc. Such assemblers, however,
         // can use DW_LNS_fixed_advance_pc instead, sacrificing compression.
         {
-          uint16_t PCOffset = DebugLineData.getRelocatedValue(2, OffsetPtr);
+          uint16_t PCOffset = DebugLineData.getU16(OffsetPtr);
           State.Row.Address.Address += PCOffset;
           if (OS)
             *OS
-                << format(" (0x%4.4" PRIx16 ")", PCOffset);
+                << format(" (0x%16.16" PRIx64 ")", PCOffset);
         }
         break;
 
@@ -1023,11 +968,30 @@ bool DWARFDebugLine::LineTable::lookupAddressRangeImpl(
   return true;
 }
 
+bool DWARFDebugLine::LineTable::hasFileAtIndex(uint64_t FileIndex) const {
+  uint16_t DwarfVersion = Prologue.getVersion();
+  assert(DwarfVersion != 0 && "LineTable has no dwarf version information");
+  if (DwarfVersion >= 5)
+    return FileIndex < Prologue.FileNames.size();
+  return FileIndex != 0 && FileIndex <= Prologue.FileNames.size();
+}
+
+const llvm::DWARFDebugLine::FileNameEntry &
+DWARFDebugLine::LineTable::getFileNameEntry(uint64_t Index) const {
+  uint16_t DwarfVersion = Prologue.getVersion();
+  assert(DwarfVersion != 0 && "LineTable has no dwarf version information");
+  // In DWARF v5 the file names are 0-indexed.
+  if (DwarfVersion >= 5)
+    return Prologue.FileNames[Index];
+  else
+    return Prologue.FileNames[Index - 1];
+}
+
 Optional<StringRef> DWARFDebugLine::LineTable::getSourceByIndex(uint64_t FileIndex,
                                                                 FileLineInfoKind Kind) const {
-  if (Kind == FileLineInfoKind::None || !Prologue.hasFileAtIndex(FileIndex))
+  if (Kind == FileLineInfoKind::None || !hasFileAtIndex(FileIndex))
     return None;
-  const FileNameEntry &Entry = Prologue.getFileNameEntry(FileIndex);
+  const FileNameEntry &Entry = getFileNameEntry(FileIndex);
   if (Optional<const char *> source = Entry.Source.getAsCString())
     return StringRef(*source);
   return None;
@@ -1041,10 +1005,10 @@ static bool isPathAbsoluteOnWindowsOrPosix(const Twine &Path) {
          sys::path::is_absolute(Path, sys::path::Style::windows);
 }
 
-bool DWARFDebugLine::Prologue::getFileNameByIndex(uint64_t FileIndex,
-                                                  StringRef CompDir,
-                                                  FileLineInfoKind Kind,
-                                                  std::string &Result) const {
+bool DWARFDebugLine::LineTable::getFileNameByIndex(uint64_t FileIndex,
+                                                   const char *CompDir,
+                                                   FileLineInfoKind Kind,
+                                                   std::string &Result) const {
   if (Kind == FileLineInfoKind::None || !hasFileAtIndex(FileIndex))
     return false;
   const FileNameEntry &Entry = getFileNameEntry(FileIndex);
@@ -1058,18 +1022,20 @@ bool DWARFDebugLine::Prologue::getFileNameByIndex(uint64_t FileIndex,
   SmallString<16> FilePath;
   StringRef IncludeDir;
   // Be defensive about the contents of Entry.
-  if (getVersion() >= 5) {
-    if (Entry.DirIdx < IncludeDirectories.size())
-      IncludeDir = IncludeDirectories[Entry.DirIdx].getAsCString().getValue();
-  } else {
-    if (0 < Entry.DirIdx && Entry.DirIdx <= IncludeDirectories.size())
+  if (Prologue.getVersion() >= 5) {
+    if (Entry.DirIdx < Prologue.IncludeDirectories.size())
       IncludeDir =
-          IncludeDirectories[Entry.DirIdx - 1].getAsCString().getValue();
+          Prologue.IncludeDirectories[Entry.DirIdx].getAsCString().getValue();
+  } else {
+    if (0 < Entry.DirIdx && Entry.DirIdx <= Prologue.IncludeDirectories.size())
+      IncludeDir = Prologue.IncludeDirectories[Entry.DirIdx - 1]
+                       .getAsCString()
+                       .getValue();
 
     // We may still need to append compilation directory of compile unit.
     // We know that FileName is not absolute, the only way to have an
     // absolute path at this point would be if IncludeDir is absolute.
-    if (!CompDir.empty() && !isPathAbsoluteOnWindowsOrPosix(IncludeDir))
+    if (CompDir && !isPathAbsoluteOnWindowsOrPosix(IncludeDir))
       sys::path::append(FilePath, CompDir);
   }
 
@@ -1126,7 +1092,7 @@ DWARFDebugLine::SectionParser::SectionParser(DWARFDataExtractor &Data,
 }
 
 bool DWARFDebugLine::Prologue::totalLengthIsValid() const {
-  return TotalLength == 0xffffffff || TotalLength < 0xfffffff0;
+  return TotalLength == 0xffffffff || TotalLength < 0xffffff00;
 }
 
 DWARFDebugLine::LineTable DWARFDebugLine::SectionParser::parseNext(

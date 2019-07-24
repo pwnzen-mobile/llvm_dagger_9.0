@@ -59,7 +59,7 @@ defm "" : CALL<i32, I32, "i32.">;
 defm "" : CALL<i64, I64, "i64.">;
 defm "" : CALL<f32, F32, "f32.">;
 defm "" : CALL<f64, F64, "f64.">;
-defm "" : CALL<exnref, EXNREF, "exnref.", [HasExceptionHandling]>;
+defm "" : CALL<ExceptRef, EXCEPT_REF, "except_ref.", [HasExceptionHandling]>;
 defm "" : CALL<v16i8, V128, "v128.", [HasSIMD128]>;
 defm "" : CALL<v8i16, V128, "v128.", [HasSIMD128]>;
 defm "" : CALL<v4i32, V128, "v128.", [HasSIMD128]>;
@@ -139,8 +139,9 @@ def : Pat<(v4f32 (WebAssemblycall1 (WebAssemblywrapper tglobaladdr:$callee))),
           (CALL_v4f32 tglobaladdr:$callee)>, Requires<[HasSIMD128]>;
 def : Pat<(v2f64 (WebAssemblycall1 (WebAssemblywrapper tglobaladdr:$callee))),
           (CALL_v2f64 tglobaladdr:$callee)>, Requires<[HasSIMD128]>;
-def : Pat<(exnref (WebAssemblycall1 (WebAssemblywrapper tglobaladdr:$callee))),
-          (CALL_exnref tglobaladdr:$callee)>,
+def : Pat<(ExceptRef
+           (WebAssemblycall1 (WebAssemblywrapper tglobaladdr:$callee))),
+          (CALL_ExceptRef tglobaladdr:$callee)>,
       Requires<[HasExceptionHandling]>;
 def : Pat<(WebAssemblycall0 (WebAssemblywrapper tglobaladdr:$callee)),
           (CALL_VOID tglobaladdr:$callee)>;
@@ -168,8 +169,9 @@ def : Pat<(v4f32 (WebAssemblycall1 (WebAssemblywrapper texternalsym:$callee))),
           (CALL_v4f32 texternalsym:$callee)>, Requires<[HasSIMD128]>;
 def : Pat<(v2f64 (WebAssemblycall1 (WebAssemblywrapper texternalsym:$callee))),
           (CALL_v2f64 texternalsym:$callee)>, Requires<[HasSIMD128]>;
-def : Pat<(exnref (WebAssemblycall1 (WebAssemblywrapper texternalsym:$callee))),
-          (CALL_exnref texternalsym:$callee)>,
+def : Pat<(ExceptRef
+           (WebAssemblycall1 (WebAssemblywrapper texternalsym:$callee))),
+          (CALL_ExceptRef texternalsym:$callee)>,
       Requires<[HasExceptionHandling]>;
 def : Pat<(WebAssemblycall0 (WebAssemblywrapper texternalsym:$callee)),
           (CALL_VOID texternalsym:$callee)>;

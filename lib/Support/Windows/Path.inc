@@ -742,7 +742,8 @@ unsigned getUmask() {
   return 0;
 }
 
-std::error_code setPermissions(const Twine &Path, perms Permissions) {
+std::error_code setPermissions(const Twine &Path, perms Permissions,
+                               bool /*RespectUmask*/) {
   SmallVector<wchar_t, 128> PathUTF16;
   if (std::error_code EC = widenPath(Path, PathUTF16))
     return EC;
@@ -771,11 +772,6 @@ std::error_code setPermissions(const Twine &Path, perms Permissions) {
     return mapWindowsError(GetLastError());
 
   return std::error_code();
-}
-
-std::error_code setPermissions(int FD, perms Permissions) {
-  // FIXME Not implemented.
-  return std::make_error_code(std::errc::not_supported);
 }
 
 std::error_code setLastAccessAndModificationTime(int FD, TimePoint<> AccessTime,

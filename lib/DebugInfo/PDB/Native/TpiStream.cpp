@@ -78,13 +78,14 @@ Error TpiStream::reload() {
 
   // Hash indices, hash values, etc come from the hash stream.
   if (Header->HashStreamIndex != kInvalidStreamIndex) {
-    auto HS = Pdb.safelyCreateIndexedStream(Header->HashStreamIndex);
-    if (!HS) {
-      consumeError(HS.takeError());
+    if (Header->HashStreamIndex >= Pdb.getNumStreams())
       return make_error<RawError>(raw_error_code::corrupt_file,
                                   "Invalid TPI hash stream index.");
-    }
-    BinaryStreamReader HSR(**HS);
+
+    auto HS = MappedBlockStream::createIndexedStream(
+        Pdb.getMsfLayout(), Pdb.getMsfBuffer(), Header->HashStreamIndex,
+        Pdb.getAllocator());
+    BinaryStreamReader HSR(*HS);
 
     // There should be a hash value for every type record, or no hashes at all.
     uint32_t NumHashValues =
@@ -109,7 +110,7 @@ Error TpiStream::reload() {
         return EC;
     }
 
-    HashStream = std::move(*HS);
+    HashStream = std::move(HS);
   }
 
   Types = llvm::make_unique<LazyRandomTypeCollection>(

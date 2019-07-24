@@ -30,7 +30,7 @@
 #include "llvm/CodeGen/StackMaps.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
@@ -1078,51 +1078,6 @@ X86InstrInfo::convertToThreeAddress(MachineFunction::iterator &MFI,
   case X86::ADD16ri_DB:
   case X86::ADD16ri8_DB:
     return convertToThreeAddressWithLEA(MIOpc, MFI, MI, LV, Is8BitOp);
-  case X86::SUB8ri:
-  case X86::SUB16ri8:
-  case X86::SUB16ri:
-    /// FIXME: Support these similar to ADD8ri/ADD16ri*.
-    return nullptr;
-  case X86::SUB32ri8:
-  case X86::SUB32ri: {
-    int64_t Imm = MI.getOperand(2).getImm();
-    if (!isInt<32>(-Imm))
-      return nullptr;
-
-    assert(MI.getNumOperands() >= 3 && "Unknown add instruction!");
-    unsigned Opc = Is64Bit ? X86::LEA64_32r : X86::LEA32r;
-
-    bool isKill;
-    unsigned SrcReg;
-    MachineOperand ImplicitOp = MachineOperand::CreateReg(0, false);
-    if (!classifyLEAReg(MI, Src, Opc, /*AllowSP=*/ true,
-                        SrcReg, isKill, ImplicitOp, LV))
-      return nullptr;
-
-    MachineInstrBuilder MIB = BuildMI(MF, MI.getDebugLoc(), get(Opc))
-                                  .add(Dest)
-                                  .addReg(SrcReg, getKillRegState(isKill));
-    if (ImplicitOp.getReg() != 0)
-      MIB.add(ImplicitOp);
-
-    NewMI = addOffset(MIB, -Imm);
-    break;
-  }
-
-  case X86::SUB64ri8:
-  case X86::SUB64ri32: {
-    int64_t Imm = MI.getOperand(2).getImm();
-    if (!isInt<32>(-Imm))
-      return nullptr;
-
-    assert(MI.getNumOperands() >= 3 && "Unknown sub instruction!");
-
-    MachineInstrBuilder MIB = BuildMI(MF, MI.getDebugLoc(),
-                                      get(X86::LEA64r)).add(Dest).add(Src);
-    NewMI = addOffset(MIB, -Imm);
-    break;
-  }
-
   case X86::VMOVDQU8Z128rmk:
   case X86::VMOVDQU8Z256rmk:
   case X86::VMOVDQU8Zrmk:
@@ -3419,11 +3374,6 @@ inline static bool isDefConvertible(const MachineInstr &MI, bool &NoSignFlag) {
 static X86::CondCode isUseDefConvertible(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default: return X86::COND_INVALID;
-  case X86::NEG8r:
-  case X86::NEG16r:
-  case X86::NEG32r:
-  case X86::NEG64r:
-    return X86::COND_AE;
   case X86::LZCNT16rr:
   case X86::LZCNT32rr:
   case X86::LZCNT64rr:
@@ -3720,9 +3670,15 @@ bool X86InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, unsigned SrcReg,
   }
 
   // Make sure Sub instruction defines EFLAGS and mark the def live.
-  MachineOperand *FlagDef = Sub->findRegisterDefOperand(X86::EFLAGS);
-  assert(FlagDef && "Unable to locate a def EFLAGS operand");
-  FlagDef->setIsDead(false);
+  unsigned i = 0, e = Sub->getNumOperands();
+  for (; i != e; ++i) {
+    MachineOperand &MO = Sub->getOperand(i);
+    if (MO.isReg() && MO.isDef() && MO.getReg() == X86::EFLAGS) {
+      MO.setIsDead(false);
+      break;
+    }
+  }
+  assert(i != e && "Unable to locate a def EFLAGS operand");
 
   CmpInstr.eraseFromParent();
 
@@ -4686,7 +4642,7 @@ MachineInstr *X86InstrInfo::foldMemoryOperandCustom(
       unsigned RCSize = TRI.getRegSizeInBits(*RC) / 8;
       if ((Size == 0 || Size >= 16) && RCSize >= 16 && Align < 16) {
         MachineInstr *NewMI =
-            FuseInst(MF, X86::MOVHPDrm, OpNum, MOs, InsertPt, MI, *this);
+            FuseInst(MF, X86::MOVHPDrm, OpNum, MOs, InsertPt, MI, *this, 8);
         return NewMI;
       }
     }
@@ -7364,6 +7320,98 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
     return Inst.getParent()->getParent()->getTarget().Options.UnsafeFPMath;
   default:
     return false;
+  }
+}
+
+Optional<ParamLoadedValue>
+X86InstrInfo::describeLoadedValue(const MachineInstr &MI) const {
+  const MachineOperand *Op = nullptr;
+  DIExpression *Expr = nullptr;
+
+  switch (MI.getOpcode()) {
+  case X86::LEA32r:
+  case X86::LEA64r:
+  case X86::LEA64_32r: {
+    // Operand 4 could be global address. For now we do not support
+    // such situation.
+    if (!MI.getOperand(4).isImm() || !MI.getOperand(2).isImm())
+      return None;
+
+    const MachineOperand &Op1 = MI.getOperand(1);
+    const MachineOperand &Op2 = MI.getOperand(3);
+    const TargetRegisterInfo *TRI = &getRegisterInfo();
+    assert(Op2.isReg() &&
+           (Op2.getReg() == X86::NoRegister ||
+            TargetRegisterInfo::isPhysicalRegister(Op2.getReg())));
+
+    // Omit situations like:
+    // %rsi = lea %rsi, 4, ...
+    if ((Op1.isReg() && Op1.getReg() == MI.getOperand(0).getReg()) ||
+        Op2.getReg() == MI.getOperand(0).getReg())
+      return None;
+    else if ((Op1.isReg() && Op1.getReg() != X86::NoRegister &&
+              TRI->regsOverlap(Op1.getReg(), MI.getOperand(0).getReg())) ||
+             (Op2.getReg() != X86::NoRegister &&
+              TRI->regsOverlap(Op2.getReg(), MI.getOperand(0).getReg())))
+      return None;
+
+    int64_t Coef = MI.getOperand(2).getImm();
+    int64_t Offset = MI.getOperand(4).getImm();
+    SmallVector<uint64_t, 8> Elements;
+
+    if ((Op1.isReg() && Op1.getReg() != X86::NoRegister)) {
+      Op = &Op1;
+    } else if (Op1.isFI())
+      Op = &Op1;
+
+    if (Op && Op->isReg() && Op->getReg() == Op2.getReg() && Coef > 0) {
+      Elements.push_back(dwarf::DW_OP_constu);
+      Elements.push_back(Coef + 1);
+      Elements.push_back(dwarf::DW_OP_mul);
+    } else {
+      if (Op && Op2.getReg() != X86::NoRegister) {
+        int dwarfReg = TRI->getDwarfRegNum(Op2.getReg(), false);
+        if (dwarfReg < 0)
+          return None;
+        else if (dwarfReg < 32)
+          Elements.push_back(dwarf::DW_OP_reg0 + dwarfReg);
+        else {
+          Elements.push_back(dwarf::DW_OP_regx);
+          Elements.push_back(dwarfReg);
+        }
+      } else if (!Op) {
+        assert(Op2.getReg() != X86::NoRegister);
+        Op = &Op2;
+      }
+
+      if (Coef > 1) {
+        assert(Op2.getReg() != X86::NoRegister);
+        Elements.push_back(dwarf::DW_OP_constu);
+        Elements.push_back(Coef);
+        Elements.push_back(dwarf::DW_OP_mul);
+      }
+
+      if (((Op1.isReg() && Op1.getReg() != X86::NoRegister) || Op1.isFI()) &&
+          Op2.getReg() != X86::NoRegister) {
+        Elements.push_back(dwarf::DW_OP_plus);
+      }
+    }
+
+    if (Offset < 0) {
+      Elements.push_back(dwarf::DW_OP_constu);
+      Elements.push_back(-Offset);
+      Elements.push_back(dwarf::DW_OP_minus);
+    } else if (Offset > 0) {
+      Elements.push_back(dwarf::DW_OP_constu);
+      Elements.push_back(Offset);
+      Elements.push_back(dwarf::DW_OP_plus);
+    }
+
+    Expr = DIExpression::get(MI.getMF()->getFunction().getContext(), Elements);
+    return ParamLoadedValue(Op, Expr);;
+  }
+  default:
+    return TargetInstrInfo::describeLoadedValue(MI);
   }
 }
 

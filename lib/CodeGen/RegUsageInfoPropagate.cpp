@@ -130,11 +130,7 @@ bool RegUsageInfoPropagation::runOnMachineFunction(MachineFunction &MF) {
       };
 
       if (const Function *F = findCalledFunction(M, MI)) {
-        if (F->isDefinitionExact()) {
-          UpdateRegMask(*F);
-        } else {
-          LLVM_DEBUG(dbgs() << "Function definition is not exact\n");
-        }
+        UpdateRegMask(*F);
       } else {
         LLVM_DEBUG(dbgs() << "Failed to find call target function\n");
       }

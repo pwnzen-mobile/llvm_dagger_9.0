@@ -48,5 +48,6 @@ add_tablegen(llvm-tblgen LLVM
   X86RecognizableInstr.cpp
   WebAssemblyDisassemblerEmitter.cpp
   CTagsEmitter.cpp
+  SemanticsEmitter.cpp
   )
 set_target_properties(llvm-tblgen PROPERTIES FOLDER "Tablegenning")

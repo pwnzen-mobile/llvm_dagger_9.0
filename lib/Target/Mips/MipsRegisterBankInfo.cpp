@@ -160,14 +160,12 @@ void MipsRegisterBankInfo::AmbiguousRegDefUseContainer::addDefUses(
   assert(!MRI.getType(Reg).isPointer() &&
          "Pointers are gprb, they should not be considered as ambiguous.\n");
   for (MachineInstr &UseMI : MRI.use_instructions(Reg)) {
-    MachineInstr *NonCopyInstr = skipCopiesOutgoing(&UseMI);
-    // Copy with many uses.
-    if (NonCopyInstr->getOpcode() == TargetOpcode::COPY &&
-        !TargetRegisterInfo::isPhysicalRegister(
-            NonCopyInstr->getOperand(0).getReg()))
-      addDefUses(NonCopyInstr->getOperand(0).getReg(), MRI);
-    else
-      DefUses.push_back(skipCopiesOutgoing(&UseMI));
+    if (UseMI.getOpcode() == TargetOpcode::COPY &&
+        !TargetRegisterInfo::isPhysicalRegister(UseMI.getOperand(0).getReg()))
+      // Copies of non-physical registers are not supported
+      return;
+
+    DefUses.push_back(&UseMI);
   }
 }
 
@@ -176,33 +174,12 @@ void MipsRegisterBankInfo::AmbiguousRegDefUseContainer::addUseDef(
   assert(!MRI.getType(Reg).isPointer() &&
          "Pointers are gprb, they should not be considered as ambiguous.\n");
   MachineInstr *DefMI = MRI.getVRegDef(Reg);
-  UseDefs.push_back(skipCopiesIncoming(DefMI));
-}
+  if (DefMI->getOpcode() == TargetOpcode::COPY &&
+      !TargetRegisterInfo::isPhysicalRegister(DefMI->getOperand(1).getReg()))
+    // Copies from non-physical registers are not supported.
+    return;
 
-MachineInstr *
-MipsRegisterBankInfo::AmbiguousRegDefUseContainer::skipCopiesOutgoing(
-    MachineInstr *MI) const {
-  const MachineFunction &MF = *MI->getParent()->getParent();
-  const MachineRegisterInfo &MRI = MF.getRegInfo();
-  MachineInstr *Ret = MI;
-  while (Ret->getOpcode() == TargetOpcode::COPY &&
-         !TargetRegisterInfo::isPhysicalRegister(Ret->getOperand(0).getReg()) &&
-         MRI.hasOneUse(Ret->getOperand(0).getReg())) {
-    Ret = &(*MRI.use_instr_begin(Ret->getOperand(0).getReg()));
-  }
-  return Ret;
-}
-
-MachineInstr *
-MipsRegisterBankInfo::AmbiguousRegDefUseContainer::skipCopiesIncoming(
-    MachineInstr *MI) const {
-  const MachineFunction &MF = *MI->getParent()->getParent();
-  const MachineRegisterInfo &MRI = MF.getRegInfo();
-  MachineInstr *Ret = MI;
-  while (Ret->getOpcode() == TargetOpcode::COPY &&
-         !TargetRegisterInfo::isPhysicalRegister(Ret->getOperand(1).getReg()))
-    Ret = MRI.getVRegDef(Ret->getOperand(1).getReg());
-  return Ret;
+  UseDefs.push_back(DefMI);
 }
 
 MipsRegisterBankInfo::AmbiguousRegDefUseContainer::AmbiguousRegDefUseContainer(
@@ -233,11 +210,8 @@ MipsRegisterBankInfo::AmbiguousRegDefUseContainer::AmbiguousRegDefUseContainer(
   }
 }
 
-bool MipsRegisterBankInfo::TypeInfoForMF::visit(
-    const MachineInstr *MI, const MachineInstr *WaitingForTypeOfMI) {
+bool MipsRegisterBankInfo::TypeInfoForMF::visit(const MachineInstr *MI) {
   assert(isAmbiguous(MI->getOpcode()) && "Visiting non-Ambiguous opcode.\n");
-  if (wasVisited(MI))
-    return true; // InstType has already been determined for MI.
 
   startVisit(MI);
   AmbiguousRegDefUseContainer DefUseContainer(MI);
@@ -250,21 +224,6 @@ bool MipsRegisterBankInfo::TypeInfoForMF::visit(
   if (visitAdjacentInstrs(MI, DefUseContainer.getUseDefs(), false))
     return true;
 
-  // All MI's adjacent instructions, are ambiguous.
-  if (!WaitingForTypeOfMI) {
-    // This is chain of ambiguous instructions.
-    setTypes(MI, InstType::Ambiguous);
-    return true;
-  }
-  // Excluding WaitingForTypeOfMI, MI is either connected to chains of ambiguous
-  // instructions or has no other adjacent instructions. Anyway InstType could
-  // not be determined. There could be unexplored path from some of
-  // WaitingForTypeOfMI's adjacent instructions to an instruction with only one
-  // mapping available.
-  // We are done with this branch, add MI to WaitingForTypeOfMI's WaitingQueue,
-  // this way when WaitingForTypeOfMI figures out its InstType same InstType
-  // will be assigned to all instructions in this branch.
-  addToWaitingQueue(WaitingForTypeOfMI, MI);
   return false;
 }
 
@@ -287,23 +246,15 @@ bool MipsRegisterBankInfo::TypeInfoForMF::visitAdjacentInstrs(
       return true;
     }
 
-    // Defaults to integer instruction. Includes G_MERGE_VALUES and
-    // G_UNMERGE_VALUES.
-    if (!isAmbiguous(AdjMI->getOpcode())) {
-      setTypes(MI, InstType::Integer);
-      return true;
+    if (isAmbiguous(AdjMI->getOpcode())) {
+      // Chains of ambiguous instructions are not supported.
+      return false;
     }
 
-    // When AdjMI was visited first, MI has to continue to explore remaining
-    // adjacent instructions and determine InstType without visiting AdjMI.
-    if (!wasVisited(AdjMI) ||
-        getRecordedTypeForInstr(AdjMI) != InstType::NotDetermined) {
-      if (visit(AdjMI, MI)) {
-        // InstType is successfully determined and is same as for AdjMI.
-        setTypes(MI, getRecordedTypeForInstr(AdjMI));
-        return true;
-      }
-    }
+    // Defaults to integer instruction. Includes G_MERGE_VALUES and
+    // G_UNMERGE_VALUES.
+    setTypes(MI, InstType::Integer);
+    return true;
   }
   return false;
 }
@@ -311,9 +262,6 @@ bool MipsRegisterBankInfo::TypeInfoForMF::visitAdjacentInstrs(
 void MipsRegisterBankInfo::TypeInfoForMF::setTypes(const MachineInstr *MI,
                                                    InstType InstTy) {
   changeRecordedTypeForInstr(MI, InstTy);
-  for (const MachineInstr *WaitingInstr : getWaitingQueueFor(MI)) {
-    setTypes(WaitingInstr, InstTy);
-  }
 }
 
 void MipsRegisterBankInfo::TypeInfoForMF::setTypesAccordingToPhysicalRegister(
@@ -340,7 +288,7 @@ void MipsRegisterBankInfo::TypeInfoForMF::setTypesAccordingToPhysicalRegister(
 
 MipsRegisterBankInfo::InstType
 MipsRegisterBankInfo::TypeInfoForMF::determineInstType(const MachineInstr *MI) {
-  visit(MI, nullptr);
+  visit(MI);
   return getRecordedTypeForInstr(MI);
 }
 
@@ -348,7 +296,6 @@ void MipsRegisterBankInfo::TypeInfoForMF::cleanupIfNewFunction(
     llvm::StringRef FunctionName) {
   if (MFName != FunctionName) {
     MFName = FunctionName;
-    WaitingQueues.clear();
     Types.clear();
   }
 }
@@ -407,8 +354,7 @@ MipsRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
       InstTy = TI.determineInstType(&MI);
     }
 
-    if (InstTy == InstType::FloatingPoint ||
-        (Size == 64 && InstTy == InstType::Ambiguous)) { // fprb
+    if (InstTy == InstType::FloatingPoint) { // fprb
       OperandsMapping =
           getOperandsMapping({Size == 32 ? &Mips::ValueMappings[Mips::SPRIdx]
                                          : &Mips::ValueMappings[Mips::DPRIdx],
@@ -432,8 +378,7 @@ MipsRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
       InstTy = TI.determineInstType(&MI);
     }
 
-    if (InstTy == InstType::FloatingPoint ||
-        (Size == 64 && InstTy == InstType::Ambiguous)) { // fprb
+    if (InstTy == InstType::FloatingPoint) { // fprb
       OperandsMapping =
           getOperandsMapping({Size == 32 ? &Mips::ValueMappings[Mips::SPRIdx]
                                          : &Mips::ValueMappings[Mips::DPRIdx],
@@ -476,8 +421,7 @@ MipsRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
       InstTy = TI.determineInstType(&MI);
     }
 
-    if (InstTy == InstType::FloatingPoint ||
-        (Size == 64 && InstTy == InstType::Ambiguous)) { // fprb
+    if (InstTy == InstType::FloatingPoint) { // fprb
       const RegisterBankInfo::ValueMapping *Bank =
           Size == 32 ? &Mips::ValueMappings[Mips::SPRIdx]
                      : &Mips::ValueMappings[Mips::DPRIdx];

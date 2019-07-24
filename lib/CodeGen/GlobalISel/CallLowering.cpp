@@ -163,19 +163,10 @@ bool CallLowering::handleAssignments(MachineIRBuilder &MIRBuilder,
                                      ValueHandler &Handler) const {
   MachineFunction &MF = MIRBuilder.getMF();
   const Function &F = MF.getFunction();
+  const DataLayout &DL = F.getParent()->getDataLayout();
+
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(F.getCallingConv(), F.isVarArg(), MF, ArgLocs, F.getContext());
-  return handleAssignments(CCInfo, ArgLocs, MIRBuilder, Args, Handler);
-}
-
-bool CallLowering::handleAssignments(CCState &CCInfo,
-                                     SmallVectorImpl<CCValAssign> &ArgLocs,
-                                     MachineIRBuilder &MIRBuilder,
-                                     ArrayRef<ArgInfo> Args,
-                                     ValueHandler &Handler) const {
-  MachineFunction &MF = MIRBuilder.getMF();
-  const Function &F = MF.getFunction();
-  const DataLayout &DL = F.getParent()->getDataLayout();
 
   unsigned NumArgs = Args.size();
   for (unsigned i = 0; i != NumArgs; ++i) {
@@ -206,7 +197,7 @@ bool CallLowering::handleAssignments(CCState &CCInfo,
            "Can't handle multiple virtual regs yet");
 
     // FIXME: Pack registers if we have more than one.
-    Register ArgReg = Args[i].Regs[0];
+    unsigned ArgReg = Args[i].Regs[0];
 
     if (VA.isRegLoc()) {
       MVT OrigVT = MVT::getVT(Args[i].Ty);
@@ -215,7 +206,7 @@ bool CallLowering::handleAssignments(CCState &CCInfo,
         if (VAVT.getSizeInBits() < OrigVT.getSizeInBits())
           return false; // Can't handle this type of arg yet.
         const LLT VATy(VAVT);
-        Register NewReg =
+        unsigned NewReg =
             MIRBuilder.getMRI()->createGenericVirtualRegister(VATy);
         Handler.assignValueToReg(NewReg, VA.getLocReg(), VA);
         // If it's a vector type, we either need to truncate the elements
@@ -243,7 +234,7 @@ bool CallLowering::handleAssignments(CCState &CCInfo,
                                       : alignTo(VT.getSizeInBits(), 8) / 8;
       unsigned Offset = VA.getLocMemOffset();
       MachinePointerInfo MPO;
-      Register StackAddr = Handler.getStackAddress(Size, Offset, MPO);
+      unsigned StackAddr = Handler.getStackAddress(Size, Offset, MPO);
       Handler.assignValueToAddress(ArgReg, StackAddr, Size, MPO, VA);
     } else {
       // FIXME: Support byvals and other weirdness
@@ -270,12 +261,12 @@ Register CallLowering::ValueHandler::extendRegister(Register ValReg,
     return MIB->getOperand(0).getReg();
   }
   case CCValAssign::SExt: {
-    Register NewReg = MRI.createGenericVirtualRegister(LocTy);
+    unsigned NewReg = MRI.createGenericVirtualRegister(LocTy);
     MIRBuilder.buildSExt(NewReg, ValReg);
     return NewReg;
   }
   case CCValAssign::ZExt: {
-    Register NewReg = MRI.createGenericVirtualRegister(LocTy);
+    unsigned NewReg = MRI.createGenericVirtualRegister(LocTy);
     MIRBuilder.buildZExt(NewReg, ValReg);
     return NewReg;
   }

@@ -97,14 +97,7 @@ class LegacyCtorDtorRunner {
 public:
   /// Construct a CtorDtorRunner for the given range using the given
   ///        name mangling function.
-  LLVM_ATTRIBUTE_DEPRECATED(
-      LegacyCtorDtorRunner(std::vector<std::string> CtorDtorNames,
-                           VModuleKey K),
-      "ORCv1 utilities (utilities with the 'Legacy' prefix) are deprecated. "
-      "Please use the ORCv2 CtorDtorRunner utility instead");
-
-  LegacyCtorDtorRunner(ORCv1DeprecationAcknowledgement,
-                       std::vector<std::string> CtorDtorNames, VModuleKey K)
+  LegacyCtorDtorRunner(std::vector<std::string> CtorDtorNames, VModuleKey K)
       : CtorDtorNames(std::move(CtorDtorNames)), K(K) {}
 
   /// Run the recorded constructors/destructors through the given JIT
@@ -134,11 +127,6 @@ private:
   std::vector<std::string> CtorDtorNames;
   orc::VModuleKey K;
 };
-
-template <typename JITLayerT>
-LegacyCtorDtorRunner<JITLayerT>::LegacyCtorDtorRunner(
-    std::vector<std::string> CtorDtorNames, VModuleKey K)
-    : CtorDtorNames(std::move(CtorDtorNames)), K(K) {}
 
 class CtorDtorRunner {
 public:
@@ -192,14 +180,7 @@ class LegacyLocalCXXRuntimeOverrides : public LocalCXXRuntimeOverridesBase {
 public:
   /// Create a runtime-overrides class.
   template <typename MangleFtorT>
-  LLVM_ATTRIBUTE_DEPRECATED(
-      LegacyLocalCXXRuntimeOverrides(const MangleFtorT &Mangle),
-      "ORCv1 utilities (utilities with the 'Legacy' prefix) are deprecated. "
-      "Please use the ORCv2 LocalCXXRuntimeOverrides utility instead");
-
-  template <typename MangleFtorT>
-  LegacyLocalCXXRuntimeOverrides(ORCv1DeprecationAcknowledgement,
-                                 const MangleFtorT &Mangle) {
+  LegacyLocalCXXRuntimeOverrides(const MangleFtorT &Mangle) {
     addOverride(Mangle("__dso_handle"), toTargetAddress(&DSOHandleOverride));
     addOverride(Mangle("__cxa_atexit"), toTargetAddress(&CXAAtExitOverride));
   }
@@ -219,13 +200,6 @@ private:
 
   StringMap<JITTargetAddress> CXXRuntimeOverrides;
 };
-
-template <typename MangleFtorT>
-LegacyLocalCXXRuntimeOverrides::LegacyLocalCXXRuntimeOverrides(
-    const MangleFtorT &Mangle) {
-  addOverride(Mangle("__dso_handle"), toTargetAddress(&DSOHandleOverride));
-  addOverride(Mangle("__cxa_atexit"), toTargetAddress(&CXAAtExitOverride));
-}
 
 class LocalCXXRuntimeOverrides : public LocalCXXRuntimeOverridesBase {
 public:

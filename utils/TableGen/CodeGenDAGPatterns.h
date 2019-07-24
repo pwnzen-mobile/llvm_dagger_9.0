@@ -593,8 +593,6 @@ public:
   /// ValueType record for the memory VT.
   Record *getScalarMemoryVT() const;
 
-  ListInit *getAddressSpaces() const;
-
   // If true, indicates that GlobalISel-based C++ code was supplied.
   bool hasGISelPredicateCode() const;
   std::string getGISelPredicateCode() const;
@@ -1017,6 +1015,7 @@ class DAGInstruction {
   std::vector<Record*> ImpResults;
   TreePatternNodePtr SrcPattern;
   TreePatternNodePtr ResultPattern;
+  TreePattern *Pattern;
 
 public:
   DAGInstruction(const std::vector<Record*> &results,
@@ -1025,13 +1024,18 @@ public:
                  TreePatternNodePtr srcpattern = nullptr,
                  TreePatternNodePtr resultpattern = nullptr)
     : Results(results), Operands(operands), ImpResults(impresults),
-      SrcPattern(srcpattern), ResultPattern(resultpattern) {}
+      SrcPattern(srcpattern), ResultPattern(resultpattern) {Pattern=nullptr;}
 
   unsigned getNumResults() const { return Results.size(); }
   unsigned getNumOperands() const { return Operands.size(); }
   unsigned getNumImpResults() const { return ImpResults.size(); }
   const std::vector<Record*>& getImpResults() const { return ImpResults; }
-
+  void setTreePattern(TreePattern *tmp_pattern ){
+    Pattern = tmp_pattern;
+  }
+  TreePattern *getPattern() const{
+    return Pattern;
+  }
   Record *getResult(unsigned RN) const {
     assert(RN < Results.size());
     return Results[RN];
