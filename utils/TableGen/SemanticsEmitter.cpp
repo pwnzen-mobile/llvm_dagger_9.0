@@ -116,11 +116,20 @@ private:
   /// Set the types of \p NS to what was inferred for \p TPN, or MVT::isVoid if
   /// the node has no result.
   void setNSTypeFromNode(NodeSemantics &NS, const TreePatternNode *TPN) {
+    errs()<<"setNsTypeFromNode "<<TPN->getName()<<"\n";
     if (TPN->getNumTypes()) {
-      for (unsigned i = 0, e = TPN->getNumTypes(); i != e; ++i)
-        NS.Types.push_back(TPN->getSimpleType(i));
+      errs()<<"tpn numTypes "<<TPN->getNumTypes()<<"\n";
+      for (unsigned i = 0, e = TPN->getNumTypes(); i != e; ++i){
+         NS.Types.push_back(TPN->getSimpleType(i));
+         errs()<<"the type is a tpn type"<<TPN->getSimpleType(i)<<"\n";
+         errs()<<"the type is a tpn type"<<TPN->getExtType(i)<<"\n";
+        if(TPN->getSimpleType(i)==192){
+             errs()<<"the type is a special type\n";
+        }
+      }
+       
     } else {
-      //errs()<<"ns type is isVoid \n";
+      errs()<<"ns type is isVoid \n";
       NS.Types.push_back(MVT::isVoid);
     }
   }
@@ -171,7 +180,9 @@ private:
   ///
   void flattenOperand(const TreePatternNode *TPN, NodeSemantics *Parent,
                       const CGIOperandList::OperandInfo *OpInfo) {
+    errs()<<"start to flatten operand\n";
     Record *OpRec = OpInfo->Rec;
+    errs()<<"OpRec : "<<OpRec->getName()<<"\n";
     NodeSemantics Op;
     setNSTypeFromNode(Op, TPN);
 
@@ -184,9 +195,9 @@ private:
         Op.Opcode = "DCINS::CONSTANT_OP";
       } else {
         Op.Opcode = "DCINS::CUSTOM_OP";
-        StringRef CGI_NameSpace;
-        StringRef* OP_TYPE = new StringRef("::OpType::");
-        CGI_NameSpace = ((StringRef)CGI.Namespace + *OP_TYPE + OpRec->getName()).getSingleStringRef() ;
+        std::string CGI_NameSpace;
+        //StringRef* OP_TYPE = new StringRef("::OpType::");
+        CGI_NameSpace = CGI.Namespace.str() + std::string("::OpType::") + OpRec->getName().str() ;
        // Op.addOperand((StringRef)CGI_NameSpace + "::OpTypes::" + OpRec->getName());
         Op.addOperand(CGI_NameSpace);
         NameToOperandMap::iterator It = OperandByName.find(OpInfo->Name);
@@ -219,11 +230,14 @@ private:
     DefInit *OpDef = dyn_cast<DefInit>(TPN->getLeafValue());
 
     if (OpDef == 0) {
+      errs()<<"OpDef == 0\n";
       IntInit *OpInt = cast<IntInit>(TPN->getLeafValue());
       NodeSemantics Mov;
       setNSTypeFromNode(Mov, TPN);
       Mov.Opcode = "DCINS::MOV_CONSTANT";
       unsigned &Idx = Target.ConstantIdx[OpInt->getValue()];
+      errs()<<"OpInt->getvalue : "<<OpInt->getValue()<<"\n";
+
       if (Idx == 0)
         Idx = Target.CurConstIdx++;
       Mov.addOperand(utostr(Idx));
@@ -235,10 +249,26 @@ private:
     NodeSemantics Op;
     setNSTypeFromNode(Op, TPN);
 
+    errs()<<"OpRec : "<<OpRec->getName()<<"\n";
+    
     if (OpRec->isSubClassOf("Register")) {
+      errs()<<"is sub class of register\n";
       Op.Opcode = "DCINS::GET_REG";
-      Op.addOperand((CGI.Namespace + "::" + OpRec->getName()).getSingleStringRef());
+      errs()<<"before add Operand()\n";
+      errs()<<" Operand : " <<OpRec->getName()<<"\n";
+      errs()<<"before add \n";
+
+      std::string tmp_str_ref = CGI.Namespace.str() + std::string("::") + OpRec->getName().str();
+      //Op.addOperand((CGI.Namespace + "::" + OpRec->getName()).getSingleStringRef());
+      Op.addOperand(tmp_str_ref);
+      errs()<<"after add \n";
+      errs()<<"after add Operand()\n";
+      errs()<<"before add RESOperand : "<<Op.Opcode<<"\n";
+      for(auto i :Op.Operands){
+         errs()<<" operand : "<<i<<"\n";
+      }
     } else {
+      errs()<<"is not sub class of register\n";
       llvm_unreachable("Unknown operand type");
     }
     addResOperand(*Parent, Op);
@@ -250,8 +280,13 @@ private:
   void flattenImplicit(const TreePatternNode *TPN, NodeSemantics &NS) {
     NS.Opcode = "DCINS::IMPLICIT";
     for (unsigned i = 0, e = TPN->getNumChildren(); i != e; ++i)
-      NS.addOperand((CGI.Namespace + "::" +
-                    TPN->getChild(i)->getLeafValue()->getAsString()).getSingleStringRef());
+    {
+     // NS.addOperand((CGI.Namespace + "::" +
+     //               TPN->getChild(i)->getLeafValue()->getAsString()).getSingleStringRef());
+      std::string tmp_std_str = CGI.Namespace.str() + std::string("::") + TPN->getChild(i)->getLeafValue()->getAsString();
+      NS.addOperand(tmp_std_str);
+    }
+      
   }
 
   /// Make node semantics for "set" nodes. For all defined values to be set:
@@ -316,7 +351,9 @@ private:
         NS.Operands.push_back(utostr(OpInfo->MIOperandNo));
       } else if (OpRec->isSubClassOf("Register")) {
         NS.Opcode = "DCINS::PUT_REG";
-        NS.Operands.push_back((CGI.Namespace + "::" + OpRec->getName()).getSingleStringRef());
+        std::string tmp_std_str = CGI.Namespace.str() + std::string("::")+ OpRec->getName().str();
+        //NS.Operands.push_back((CGI.Namespace + "::" + OpRec->getName()).getSingleStringRef());
+        NS.Operands.push_back(tmp_std_str);
       }
       NS.Operands.push_back(utostr(FirstDefNo + i));
       addSemantics(NS);
@@ -342,6 +379,13 @@ private:
   void flattenSDNode(const TreePatternNode *TPN, NodeSemantics &NS) {
     Record *Operator = TPN->getOperator();
     errs()<<"flatten sdcode operator : "<<Operator->getName()<<"\n";
+    if(TPN->getNumTypes()>0){
+        errs()<<"sdnode type 0 : "<<TPN->getSimpleType(0)<<"\n";
+    }
+    else{
+       errs()<<"sdnode type 0 is 0\n ";
+    }
+    
     SemanticsTarget::SDNodeEquivMap::const_iterator It =
         Target.SDNodeEquiv.find(Operator);
     NS.Opcode = Operator->getValueAsString("Opcode");
@@ -361,7 +405,7 @@ private:
         errs()<<" child : "<<i<<" is null\n";
       }
       else{
-        errs()<<" child : "<<i<<" : "<<chil_tpn->getName()<<"\n";
+        errs()<<" child : "<<i<<" : \n";//<<chil_tpn->getName()<<"\n";
       }
       flatten(TPN->getChild(i), &NS);
     }
@@ -375,6 +419,7 @@ private:
       flattenOperand(TPN, Parent, OpInfo);
       return;
     } else if (TPN->isLeaf()) {
+      errs()<<"start to flatten leaf\n";
       flattenLeaf(TPN, Parent);
       return;
     }
@@ -382,7 +427,7 @@ private:
     if(Operator == nullptr){
       errs()<<"operator is NULL\n";
     }
-    errs()<<"operator : "<<Operator->getName()<<"\n";
+   // errs()<<"operator : "<<Operator->getName()<<"\n";
     NodeSemantics NS;
 
     setNSTypeFromNode(NS, TPN);
@@ -397,12 +442,37 @@ private:
       assert(Parent == 0 && "An 'implicit' node wasn't at the top-level?");
       errs()<<"start to flatten impicit\n";
       flattenImplicit(TPN, NS);
-    } else if (Operator->isSubClassOf("SDNode")) {
-      errs()<<"start to faltten SDDNode\n";
-      errs()<<"flatten node "<<TPN->getName()<<"\n";
-      flattenSDNode(TPN, NS);
-    } else {
-      llvm_unreachable("Unable to handle operator.");
+    } else{ 
+      bool result = Operator->isSubClassOf("SDNode");
+      errs()<<"result "<<result<<"\n";
+      //if (Operator->isSubClassOf("SDNode")==true) {
+      if(result != 0){ 
+        errs()<<"result :"<<result<<"\n";
+      
+        if(Operator->getName().equals("store")==true){
+          errs()<<"TPN : "<<TPN->getName()<<"\n";
+          errs()<<"the operator is store how could that be \n";
+          errs()<<"isSubClassOf : "<<Operator->isSubClassOf("SDNode")<<"\n";
+          errs()<<"true : "<<true<<"\n";
+          auto Superclasses = Operator->getSuperClasses();
+          for (auto SCpair : Superclasses){
+            if (const auto *SI = dyn_cast<StringInit>(SCpair.first->getNameInit())) {
+              errs()<<"si get value : "<<SI->getValue()<<"\n";
+              if(SI->getValue() == "SDNode"){
+                errs()<<"this equals SDNode? \n";
+              }
+            }
+            else{
+              errs()<<"operator super class : "<<SCpair.first->getNameInitAsString()<<"\n";
+            }
+          }
+        }
+        errs()<<"start to faltten SDDNode\n";
+        errs()<<"flatten node "<<TPN->getName()<<"\n";
+        flattenSDNode(TPN, NS);
+      } else {
+        llvm_unreachable("Unable to handle operator.");
+      }
     }
     errs()<<"before secord add\n";
     if (Parent)
@@ -426,7 +496,9 @@ public:
                                         IRE = EliminatedImplicitRegs.end();
          IRI != IRE; ++IRI) {
       NS.Operands.clear();
-      NS.addOperand((CGI.Namespace + "::" + (*IRI)->getName()).getSingleStringRef());
+      std::string tmp_std_str = CGI.Namespace.str() + std::string("::") + (*IRI)->getName().str();
+      //NS.addOperand((CGI.Namespace + "::" + (*IRI)->getName()).getSingleStringRef());
+      NS.addOperand(tmp_std_str);
       I.Semantics.push_back(NS);
     }
   }
@@ -484,7 +556,7 @@ SemanticsEmitter::SemanticsEmitter(RecordKeeper &Records)
     if (InstIdx[i])
       continue;
     TreePatternNodePtr srcPattern = DI.getSrcPattern();
-    errs()<<"srcPattern : "<<srcPattern->getName()<<"\n";
+   // errs()<<"srcPattern : "<<srcPattern->getName()<<"\n";
     if (srcPattern && !CGI.isCodeGenOnly) {
       addInstSemantics(i, InstSemantics(SemaTarget, CGI, *DI.getPattern()));
       TreePattern tmp_Pattern(TheDef,srcPattern,true,CGPatterns);
@@ -513,7 +585,7 @@ void SemanticsEmitter::ParseSemantics() {
 
     if (isa<ListInit>(Instrs[i]->getValueInit("Pattern")))
       LI = Instrs[i]->getValueAsListInit("Pattern");
-
+    
     Record *InstDef = Instrs[i]->getValueAsDef("Inst");
 
     CodeGenInstruction &CGI = Target.getInstruction(InstDef);
@@ -548,6 +620,10 @@ void SemanticsEmitter::ParseSemantics() {
        errs()<<"inst def : "<<InstDef->getName()<<"\n";
        errs()<<"pattern size : "<<tmp_pattern->getNumTrees()<<"\n";
        errs()<<"the first pattern : "<<tmp_pattern->getTree(0)->getName()<<"\n";
+      if(InstDef->getName().equals("STURXi")){
+         errs()<<"first pattern operator : store : "<<
+         TheInst.getPattern()->getTree(0)->getOperator()->getName()<<"\n";
+      }
     }
     addInstSemantics(std::distance(CGIByEnum.begin(), It),
                      InstSemantics(SemaTarget, CGI, *TheInst.getPattern()));
@@ -556,6 +632,8 @@ void SemanticsEmitter::ParseSemantics() {
 }
 
 void SemanticsEmitter::run(raw_ostream &OS) {
+  errs()<<"start to write to file \n "<< "\n";
+  errs()<<"os buffer size \n "<<OS.GetBufferSize();
   emitSourceFileHeader("Target Instruction Semantics", OS);
 
   StringRef TGName = Target.getName();
@@ -570,6 +648,7 @@ void SemanticsEmitter::run(raw_ostream &OS) {
 
   OS << "const unsigned InstSemantics[] = {\n";
   OS << "  DCINS::END_OF_INSTRUCTION,\n";
+  errs()<<"start to output instsemantics \n ";
   CurSemaOffset = 1;
   for (unsigned I = 0, E = InstIdx.size(); I != E; ++I) {
     if (InstIdx[I] == 0)
@@ -582,29 +661,45 @@ void SemanticsEmitter::run(raw_ostream &OS) {
          SI != SE; ++SI) {
       ++CurSemaOffset;
       OS.indent(2) << SI->Opcode;
-      for (unsigned ti = 0, te = SI->Types.size(); ti != te; ++ti)
+      errs()<<"CGI Def name： "<< CGIByEnum[I]->TheDef->getName()<<"\n";
+      errs()<<"si type size ： "<< SI->Types.size()<<"\n";
+      errs()<<"si Operand size ： "<< SI->Operands.size()<<"\n";
+      errs()<<" I "<< I <<"\n";
+      errs()<<" num bytes "<< OS.GetNumBytesInBuffer() <<"\n";
+      OS.flush();
+      //for (unsigned ti = 0, te = SI->Types.size(); ti != te; ++ti)
+      for(unsigned ti=0; ti<SI->Types.size();ti++)
       {
+        //errs()<<"ti is "<<ti<<"\n";
+        errs()<<"type enum name "<<SI->Types[ti]<<"\n";;
         OS << ", " << llvm::getEnumName(SI->Types[ti]);
-        errs()<<llvm::getEnumName(SI->Types[ti]);
+        
+         
+        
       }
+      errs()<<"it seems not here 660 \n ";
       CurSemaOffset += SI->Types.size();
-      for (unsigned oi = 0, oe = SI->Operands.size(); oi != oe; ++oi)
+      OS.flush();
+      //for (unsigned oi = 0, oe = SI->Operands.size(); oi != oe; ++oi)
+      for(unsigned oi=0;oi<SI->Operands.size();oi++)
       {
         OS << ", " << SI->Operands[oi];
         errs()<<  ", " << SI->Operands[oi];
+        errs()<<"oi is "<<oi<<"\n";
       }
+      errs()<<"it seems not here 670\n ";
       CurSemaOffset += SI->Operands.size();
       OS << ",\n";
     }
     OS << "  DCINS::END_OF_INSTRUCTION,\n";
   }
   OS << "};\n\n";
-
+  errs()<<"output Instsemantics \n ";
   OS << "const unsigned OpcodeToSemaIdx[] = {\n";
   for (unsigned I = 0, E = InstIdx.size(); I != E; ++I)
     OS << InstIdx[I] << ", \t// " << CGIByEnum[I]->TheDef->getName() << "\n";
   OS << "};\n\n";
-
+  errs()<<"output OpcodeTosemaidx \n ";
   std::vector<uint64_t> Constants(SemaTarget.ConstantIdx.size() + 1);
   for (SemanticsTarget::ConstantIdxMap::const_iterator
            CI = SemaTarget.ConstantIdx.begin(),
@@ -616,7 +711,7 @@ void SemanticsEmitter::run(raw_ostream &OS) {
     OS.indent(2) << Constants[I] << "U,\n";
   }
   OS << "};\n\n";
-
+  errs()<<"output sematarget.constantidx \n ";
   OS << "\n} // end anonymous namespace\n";
   OS << "} // end namespace " << TGName << "\n";
   OS << "} // end namespace llvm\n";
@@ -664,6 +759,7 @@ namespace llvm {
 bool EmitSemantics(RecordKeeper &Records, raw_ostream &OS) {
   errs()<<"start to emit semantics \n ";
   SemanticsEmitter(Records).run(OS);
+  errs()<<"end to emit semantics \n ";
   return false;
 }
 

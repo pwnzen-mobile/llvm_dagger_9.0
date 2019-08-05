@@ -982,6 +982,10 @@ inline bool TreePatternNode::UpdateNodeType(unsigned ResNo,
                                             const TypeSetByHwMode &InTy,
                                             TreePattern &TP) {
   TypeSetByHwMode VTS(InTy);
+  if(VTS.getMachineValueType().SimpleTy==192){
+    //errs() << "update node type to 192 at 986\n";
+    //这个地方的update有问题
+  }
   TP.getInfer().expandOverloads(VTS);
   return TP.getInfer().MergeInTypeInfo(Types[ResNo], VTS);
 }
@@ -991,6 +995,9 @@ inline bool TreePatternNode::UpdateNodeType(unsigned ResNo,
                                             TreePattern &TP) {
   TypeSetByHwMode VTS(InTy);
   TP.getInfer().expandOverloads(VTS);
+  if(VTS.getMachineValueType().SimpleTy==192){
+    //errs() << "update node type to 192 at 998" <<InTy<<"\n";
+  }
   return TP.getInfer().MergeInTypeInfo(Types[ResNo], VTS);
 }
 
@@ -999,6 +1006,9 @@ inline bool TreePatternNode::UpdateNodeType(unsigned ResNo,
                                             TreePattern &TP) {
   TypeSetByHwMode VTS(InTy);
   TP.getInfer().expandOverloads(VTS);
+  if(VTS.getMachineValueType().SimpleTy==192){
+   // errs() << "update node type to 192 at 1009\n";
+  }
   return TP.getInfer().MergeInTypeInfo(Types[ResNo], VTS);
 }
 

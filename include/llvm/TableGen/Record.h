@@ -1560,13 +1560,26 @@ public:
   }
 
   bool isSubClassOf(StringRef Name) const {
+    if((getName().equals("store"))&&(Name.equals("SDNode"))){
+        //errs()<<"WTF？\n";        
+    }
     for (const auto &SCPair : SuperClasses) {
       if (const auto *SI = dyn_cast<StringInit>(SCPair.first->getNameInit())) {
-        if (SI->getValue() == Name)
+        if (SI->getValue() == Name){
+          if((getName().equals("store"))&&(Name.equals("SDNode"))){
+            errs()<<"store : SI->getValue "<<SI->getValue()<<" == Name "<<Name<<"\n";
+          }
           return true;
+        }
       } else if (SCPair.first->getNameInitAsString() == Name) {
+        if((getName().equals("store"))&&(Name.equals("SDNode"))){
+            errs()<<"store : SCPair first ->getNameInitAsString() "<<SCPair.first->getNameInitAsString()<<" == Name "<<Name<<"\n";
+          }
         return true;
       }
+    }
+    if((getName().equals("store"))&&(Name.equals("SDNode"))){
+        //errs()<<"it should be false？\n";        
     }
     return false;
   }

@@ -52,11 +52,11 @@ def : Semantics<BICSXrs, [(set GPR64:$Rd, (add GPR64:$Rn, logical_shifted_reg64:
 
 
 def : Semantics<LDRBBui, [(set GPR32:$Rt, (zext (i8 (load (add GPR64sp:$Rn, uimm12s1:$offset)))))]>;
-def : Semantics<LDRBui, [(set FPR8:$Rt, (bitconvert (i8 (load (add GPR64sp:$Rn, uimm12s1:$offset)))))]>;
-def : Semantics<LDRDui, [(set (f64 FPR64:$Rt), (load (add GPR64sp:$Rn, uimm12s8:$offset)))]>;
+def : Semantics<LDRBui, [(set FPR8Op:$Rt, (bitconvert (i8 (load (add GPR64sp:$Rn, uimm12s1:$offset)))))]>;
+def : Semantics<LDRDui, [(set (f64 FPR64Op:$Rt), (load (add GPR64sp:$Rn, uimm12s8:$offset)))]>;
 def : Semantics<LDRHHui, [(set GPR32:$Rt, (zext (i16 (load (add GPR64sp:$Rn, uimm12s2:$offset)))))]>;
-def : Semantics<LDRHui, [(set (f16 FPR16:$Rt), (load (add GPR64sp:$Rn, uimm12s2:$offset)))]>;
-def : Semantics<LDRQui, [(set (f128 FPR128:$Rt), (load (add GPR64sp:$Rn, uimm12s16:$offset)))]>;
+def : Semantics<LDRHui, [(set (f16 FPR16Op:$Rt), (load (add GPR64sp:$Rn, uimm12s2:$offset)))]>;
+def : Semantics<LDRQui, [(set (f128 FPR128Op:$Rt), (load (add GPR64sp:$Rn, uimm12s16:$offset)))]>;
 def : Semantics<LDRSBWui, [(set GPR32:$Rt, (sext (i8 (load (add GPR64sp:$Rn, uimm12s1:$offset)))))]>;
 def : Semantics<LDRSBXui, [(set GPR64:$Rt, (sext (i8 (load (add GPR64sp:$Rn, uimm12s1:$offset)))))]>;
 def : Semantics<LDRSHWui, [(set GPR32:$Rt, (sext (i16 (load (add GPR64sp:$Rn, uimm12s2:$offset)))))]>;
@@ -414,9 +414,9 @@ def : STXP<STLXPX, i64, GPR64, 8>;
 def : Semantics<LDRSWl, [(set GPR64:$Rt, (sext (i32 (load (i64 (bitconvert am_ldrlit:$label))))))]>;
 def : Semantics<LDRWl, [(set GPR32:$Rt, (load (i64 (bitconvert am_ldrlit:$label))))]>;
 def : Semantics<LDRXl, [(set GPR64:$Rt, (load (i64 (bitconvert am_ldrlit:$label))))]>;
-def : Semantics<LDRSl, [(set (f32 FPR32:$Rt), (load (i64 (bitconvert am_ldrlit:$label))))]>;
-def : Semantics<LDRDl, [(set (f64 FPR64:$Rt), (load (i64 (bitconvert am_ldrlit:$label))))]>;
-def : Semantics<LDRQl, [(set (f128 FPR128:$Rt), (load (i64 (bitconvert am_ldrlit:$label))))]>;
+def : Semantics<LDRSl, [(set (f32 FPR32Op:$Rt), (load (i64 (bitconvert am_ldrlit:$label))))]>;
+def : Semantics<LDRDl, [(set (f64 FPR64Op:$Rt), (load (i64 (bitconvert am_ldrlit:$label))))]>;
+def : Semantics<LDRQl, [(set (f128 FPR128Op:$Rt), (load (i64 (bitconvert am_ldrlit:$label))))]>;
 
 
 def : Semantics<SUBWri, [(set GPR32sp:$Rd, (sub GPR32sp:$Rn, addsub_shifted_imm32:$imm))]>;

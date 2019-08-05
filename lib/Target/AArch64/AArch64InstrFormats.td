@@ -3630,7 +3630,8 @@ class BaseLoadStorePreIdx<bits<2> sz, bit V, bits<2> opc, dag oops, dag iops,
 
 let hasSideEffects = 0 in {
 let mayStore = 0, mayLoad = 1 in
-class LoadPreIdx<bits<2> sz, bit V, bits<2> opc, RegisterOperand regtype,
+//class LoadPreIdx<bits<2> sz, bit V, bits<2> opc, RegisterOperand regtype,
+  class LoadPreIdx<bits<2> sz, bit V, bits<2> opc, RegisterClass regtype,
              string asm>
     : BaseLoadStorePreIdx<sz, V, opc,
                      (outs GPR64sp:$wback, regtype:$Rt),

@@ -2161,6 +2161,18 @@ Init *Record::getValueInit(StringRef FieldName) const {
 
 StringRef Record::getValueAsString(StringRef FieldName) const {
   const RecordVal *R = getValue(FieldName);
+  if((getName().equals("store"))&&(FieldName.find("Opcode")!=StringRef::npos)){
+      for(auto val : Values){
+        errs()<<"store values : "<<val.getName()<<"\n";
+      }
+      if (!R || !R->getValue()){
+        errs()<<"the record has no field named "<<getName()<<"\n";
+      }
+      else{
+        errs()<<" store recordVal : "<<R->getValue()->getAsString()<<"\n";
+      }
+      
+  }
   if (!R || !R->getValue())
     PrintFatalError(getLoc(), "Record `" + getName() +
       "' does not have a field named `" + FieldName + "'!\n");
