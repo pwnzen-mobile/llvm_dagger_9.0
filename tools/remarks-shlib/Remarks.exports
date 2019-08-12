@@ -6,7 +6,6 @@ LLVMRemarkDebugLocGetSourceColumn
 LLVMRemarkArgGetKey
 LLVMRemarkArgGetValue
 LLVMRemarkArgGetDebugLoc
-LLVMRemarkEntryDispose
 LLVMRemarkEntryGetType
 LLVMRemarkEntryGetPassName
 LLVMRemarkEntryGetRemarkName

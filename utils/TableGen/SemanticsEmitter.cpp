@@ -116,8 +116,11 @@ private:
   /// Set the types of \p NS to what was inferred for \p TPN, or MVT::isVoid if
   /// the node has no result.
   void setNSTypeFromNode(NodeSemantics &NS, const TreePatternNode *TPN) {
-    errs()<<"setNsTypeFromNode "<<TPN->getName()<<"\n";
+    errs()<<"setNsTypeFromNode "<<TPN<<"\n";
+    errs()<<"set ns type from node name : "<<TPN->getName()<<"\n";
+   // errs()<<"setNsTypeFromNode operator"<<TPN->getOperator()->getName()<<"\n";
     if (TPN->getNumTypes()) {
+      errs()<<"tpn add : "<<TPN<<"\n";
       errs()<<"tpn numTypes "<<TPN->getNumTypes()<<"\n";
       for (unsigned i = 0, e = TPN->getNumTypes(); i != e; ++i){
          NS.Types.push_back(TPN->getSimpleType(i));
@@ -326,6 +329,9 @@ private:
     NodeSemantics DummyNS;
     errs()<<"--------\n";
     errs()<<"start to flatten lastchild\n";
+    errs()<<"flatten set : "<<TPN<<"\n";
+    errs()<<"flatten set : "<<TPN->getName()<<"\n";
+    errs()<<"lastchild "<<LastChild->getName()<<"\n";
     flatten(LastChild, &DummyNS);
     // We count what the child defined, because when replacing equivalent
     // SDNodes, it doesn't define all the children.
@@ -440,7 +446,7 @@ private:
     }
     if (Operator->getName() == "implicit") {
       assert(Parent == 0 && "An 'implicit' node wasn't at the top-level?");
-      errs()<<"start to flatten impicit\n";
+      errs()<<" impicit\n";
       flattenImplicit(TPN, NS);
     } else{ 
       bool result = Operator->isSubClassOf("SDNode");
@@ -570,7 +576,18 @@ void SemanticsEmitter::addInstSemantics(unsigned InstEnumValue,
   InstIdx[InstEnumValue] = InstSemas.size();
   InstSemas.push_back(Sema);
 }
-
+void print_trees(const TreePatternNodePtr tmp_tpn){
+    for(int tmp_i=0; tmp_i<tmp_tpn->getNumChildren();tmp_i++){
+        errs()<<"the tpn pattern "<<tmp_i<<" is "<<tmp_tpn->getChild(tmp_i)->getName()<<"address :"<<tmp_tpn->getChild(tmp_i)<<"\n";
+        for(int tmp_j=0;tmp_j<tmp_tpn->getChild(tmp_i)->getNumTypes();tmp_j++){
+          if(tmp_tpn->getChild(tmp_i)->getType(tmp_j).getSimple().SimpleTy==192){
+            //errs()<<"this is a special one \n";
+          }
+          errs()<<"type "<<tmp_j<<" is "<<tmp_tpn->getChild(tmp_i)->getType(tmp_j).getSimple().SimpleTy<<"\n";
+        }
+        print_trees(tmp_tpn->getChildShared(tmp_i));
+    }
+}
 void SemanticsEmitter::ParseSemantics() {
   std::vector<Record *> Instrs = Records.getAllDerivedDefinitions("Semantics");
   const std::vector<const CodeGenInstruction *> &CGIByEnum =
@@ -594,7 +611,7 @@ void SemanticsEmitter::ParseSemantics() {
      errs()<<"before parse instruction parttern : "<<CGI.AsmString<<"\n";
      errs()<<"CGI the def : "<< CGI.TheDef->getName()<<"\n";
      CGPatterns.parseInstructionPattern(
-        CGI, LI, DAGInsts);
+        CGI, LI, DAGInsts,/*can use output */true);
       const DAGInstruction &TheInst = DAGInsts.find(InstDef)->second;  //新的接口没有返回值因此需要自己去找
     errs()<<"daginstruction  result "<<TheInst.getNumResults()<<"\n";
     errs()<<"daginstruction  Operands : "<<TheInst.getNumOperands()<<"\n";
@@ -608,7 +625,16 @@ void SemanticsEmitter::ParseSemantics() {
     assert(It != CGIByEnum.end() && *It == &CGI);
     errs()<<"before create treepattern\n";
     TreePattern *tmp_pattern = TheInst.getPattern();
-    
+    errs()<<"print all trees in the pattern\n";
+    for(int tmp_i=0;tmp_i<tmp_pattern->getNumTrees();tmp_i++){
+        errs()<<"the "<<tmp_i<<" treepatternode is "<<tmp_pattern->getTree(tmp_i)->getName()<<" address : "<<tmp_pattern->getTree(tmp_i).get()<<"\n";
+        for(int tmp_j=0;tmp_j<tmp_pattern->getTree(tmp_i)->getNumTypes();tmp_j++){
+          errs()<<"type "<<tmp_j<<" is "<<tmp_pattern->getTree(tmp_i)->getType(tmp_j).getSimple().SimpleTy<<"\n";
+        }
+        print_trees(tmp_pattern->getTree(tmp_i));
+    }
+    //add by -death try to infer the pattern?
+    tmp_pattern->InferAllTypes();
     TreePatternNodePtr srcPattern = TheInst.getSrcPattern();
     //errs()<<"The Inst srcPattern"<<srcPattern->getOperator()->getName()<<"\n";
    // TreePattern tmp_pattern(InstDef, srcPattern,true,CGPatterns);
@@ -620,9 +646,20 @@ void SemanticsEmitter::ParseSemantics() {
        errs()<<"inst def : "<<InstDef->getName()<<"\n";
        errs()<<"pattern size : "<<tmp_pattern->getNumTrees()<<"\n";
        errs()<<"the first pattern : "<<tmp_pattern->getTree(0)->getName()<<"\n";
+       if(tmp_pattern->getNumTrees()>0){
+         for(int tmp_i =0;tmp_i<tmp_pattern->getNumTrees();tmp_i++){
+           if(tmp_pattern->getTree(tmp_i)->getNumTypes()>0){
+            errs()<<"the pattern type 0 is "<<
+            tmp_pattern->getTree(tmp_i)->getExtType(0).getMachineValueType().SimpleTy<<"\n";
+         }
+         }
+         
+       }
       if(InstDef->getName().equals("STURXi")){
          errs()<<"first pattern operator : store : "<<
          TheInst.getPattern()->getTree(0)->getOperator()->getName()<<"\n";
+        // errs()<<"first pattern type : store : "<<
+         // TheInst.getPattern()->getTree(0)->getExtType(0).getMachineValueType().SimpleTy<<"\n";
       }
     }
     addInstSemantics(std::distance(CGIByEnum.begin(), It),
@@ -671,6 +708,7 @@ void SemanticsEmitter::run(raw_ostream &OS) {
       for(unsigned ti=0; ti<SI->Types.size();ti++)
       {
         //errs()<<"ti is "<<ti<<"\n";
+        
         errs()<<"type enum name "<<SI->Types[ti]<<"\n";;
         OS << ", " << llvm::getEnumName(SI->Types[ti]);
         
@@ -737,12 +775,17 @@ InstSemantics::InstSemantics(SemanticsTarget &Target,
                              const TreePattern &TP) {
   errs()<<"at start of instsemantics \n";
   Flattener Flat(Target, CGI, *this);
+   TreePattern *tmp_pattern;
+    tmp_pattern =(TreePattern*) &TP;
+    //tmp_pattern->InferAllTypes();
   for (unsigned i = 0, e = TP.getNumTrees(); i != e; ++i)
   {
     if(TP.getTree(i)==nullptr){
       errs()<<"num :"<<i<<" is null\n";
     }
     errs()<<" num : "<<i<<" is "<<TP.getTree(i)->getOperator()->getName()<<"\n";
+    errs()<<"tpn address  "<<TP.getTree(i).get()<<" type num : "<<TP.getTree(i)->getNumTypes()<<"\n";
+    TP.getTree(i)->ApplyTypeConstraints(*tmp_pattern,false);
     Flat.flatten(TP.getTree(i).get());
   }
     

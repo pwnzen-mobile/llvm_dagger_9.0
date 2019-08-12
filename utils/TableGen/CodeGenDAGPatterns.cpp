@@ -2063,24 +2063,35 @@ static TypeSetByHwMode getImplicitType(Record *R, unsigned ResNo,
   // Check to see if this is a register operand.
   if (R->isSubClassOf("RegisterOperand")) {
     assert(ResNo == 0 && "Regoperand ref only has one result!");
-    errs()<<"R is a sub class of register operand"<<R->getName()<<"\n";
+   // errs()<<"R is a sub class of register operand"<<R->getName()<<"\n";
     if (NotRegisters)
     {
-      errs()<<"subclass of registerOperand is not register \n";
-         return TypeSetByHwMode(); // Unknown.
+     // errs()<<"subclass of registerOperand is not register \n";
+         TypeSetByHwMode tmp_tsbhm; 
+        tmp_tsbhm = TypeSetByHwMode();
+        if(tmp_tsbhm.getMachineValueType().SimpleTy==192){
+          //errs()<<" the sub class :"<<R->getName()<< "of register operand  not register simpleTy = 192\n";
+        }
+        return tmp_tsbhm;
+         //return TypeSetByHwMode(); // Unknown.
     }
      
     Record *RegClass = R->getValueAsDef("RegClass");
-    errs()<<"R is a sub class of register operand"<<RegClass->getName()<<"\n";
+   // errs()<<"R is a sub class of register operand"<<RegClass->getName()<<"\n";
     const CodeGenTarget &T = TP.getDAGPatterns().getTargetInfo();
-    errs()<<"R codegenttarget is : "<<T.getName()<<"\n";
-    return TypeSetByHwMode(T.getRegisterClass(RegClass).getValueTypes());
+   // errs()<<"R codegenttarget is : "<<T.getName()<<"\n";
+    TypeSetByHwMode tmp_tsbhm; 
+    tmp_tsbhm = TypeSetByHwMode(T.getRegisterClass(RegClass).getValueTypes());
+    if(tmp_tsbhm.getMachineValueType().SimpleTy==192){
+     // errs()<<" the sub class of register operand simpleTy = 192\n";
+    }
+    return tmp_tsbhm;
   }
 
   // Check to see if this is a register or a register class.
   if (R->isSubClassOf("RegisterClass")) {
 
-    errs()<<"subclass of RegisterClass : " <<R->getName()<<"\n";
+    //errs()<<"subclass of RegisterClass : " <<R->getName()<<"\n";
     assert(ResNo == 0 && "Regclass ref only has one result!");
     // An unnamed register class represents itself as an i32 immediate, for
     // example on a COPY_TO_REGCLASS instruction.
@@ -2091,38 +2102,62 @@ static TypeSetByHwMode getImplicitType(Record *R, unsigned ResNo,
     // types.
     if (NotRegisters)
     {
-      errs()<<"sub class of register class not registers\n";
+     // errs()<<"sub class of register class not registers\n";
+      TypeSetByHwMode tmp_tsbhm; 
+     tmp_tsbhm = TypeSetByHwMode();
+    if(tmp_tsbhm.getMachineValueType().SimpleTy==192){
+     // errs()<<" the sub class of registerClass no registers simpleTy = 192\n";
+    }
+    return tmp_tsbhm;
       return TypeSetByHwMode(); // Unknown.
     }
       
     const CodeGenTarget &T = TP.getDAGPatterns().getTargetInfo();
-    return TypeSetByHwMode(T.getRegisterClass(R).getValueTypes());
+    TypeSetByHwMode tmp_tsbhm; 
+     tmp_tsbhm = TypeSetByHwMode(T.getRegisterClass(R).getValueTypes());
+    if(tmp_tsbhm.getMachineValueType().SimpleTy==192){
+     // errs()<<" the sub class of registerClass simpleTy = 192\n";
+    }
+    return tmp_tsbhm;
+   // return TypeSetByHwMode(T.getRegisterClass(R).getValueTypes());
   }
 
   if (R->isSubClassOf("PatFrags")) {
-    errs()<<"this R is sub class of patfrag so it is typeset by hwmode \n";
+    //errs()<<"this R is sub class of patfrag so it is typeset by hwmode \n";
     assert(ResNo == 0 && "FIXME: PatFrag with multiple results?");
     // Pattern fragment types will be resolved when they are inlined.
-    return TypeSetByHwMode(); // Unknown.
+      TypeSetByHwMode tmp_tsbhm; 
+     tmp_tsbhm = TypeSetByHwMode();
+    if(tmp_tsbhm.getMachineValueType().SimpleTy==192){
+     // errs()<<" the sub class of PatFrags simpleTy = 192\n";
+    }
+    return tmp_tsbhm;
+   // return TypeSetByHwMode(); // Unknown.
   }
 
   if (R->isSubClassOf("Register")) {
-    errs()<<"R is just subclass of register \n";
+   // errs()<<"R is just subclass of register \n";
     assert(ResNo == 0 && "Registers only produce one result!");
     if (NotRegisters)
       return TypeSetByHwMode(); // Unknown.
     const CodeGenTarget &T = TP.getDAGPatterns().getTargetInfo();
-    return TypeSetByHwMode(T.getRegisterVTs(R));
+    TypeSetByHwMode tmp_tsbhm; 
+     tmp_tsbhm = TypeSetByHwMode(T.getRegisterVTs(R));
+    if(tmp_tsbhm.getMachineValueType().SimpleTy==192){
+     // errs()<<" the sub class of register  simpleTy = 192\n";
+    }
+    return tmp_tsbhm;
+    //return TypeSetByHwMode(T.getRegisterVTs(R));
   }
 
   if (R->isSubClassOf("SubRegIndex")) {
-    errs()<<"R is a subregindex \n";
+    //errs()<<"R is a subregindex \n";
     assert(ResNo == 0 && "SubRegisterIndices only produce one result!");
     return TypeSetByHwMode(MVT::i32);
   }
 
   if (R->isSubClassOf("ValueType")) {
-    errs()<<"R is just subclass of valuetype \n";
+    //errs()<<"R is just subclass of valuetype \n";
     assert(ResNo == 0 && "This node only has one result!");
     // An unnamed VTSDNode represents itself as an MVT::Other immediate.
     //
@@ -2138,28 +2173,44 @@ static TypeSetByHwMode getImplicitType(Record *R, unsigned ResNo,
     if (NotRegisters)
       return TypeSetByHwMode(); // Unknown.
     const CodeGenHwModes &CGH = CDP.getTargetInfo().getHwModes();
-    return TypeSetByHwMode(getValueTypeByHwMode(R, CGH));
+    TypeSetByHwMode tmp_tsbhm; 
+     tmp_tsbhm = TypeSetByHwMode(getValueTypeByHwMode(R, CGH));
+    if(tmp_tsbhm.getMachineValueType().SimpleTy==192){
+      errs()<<" the sub class of register  simpleTy = 192\n";
+    }
+    return tmp_tsbhm;
+    //return TypeSetByHwMode(getValueTypeByHwMode(R, CGH));
   }
 
   if (R->isSubClassOf("CondCode")) {
-    errs()<<"R is just subclass of CondCode \n";
+   // errs()<<"R is just subclass of CondCode \n";
     assert(ResNo == 0 && "This node only has one result!");
     // Using a CondCodeSDNode.
     return TypeSetByHwMode(MVT::Other);
   }
 
   if (R->isSubClassOf("ComplexPattern")) {
-    errs()<<"R is just subclass of ComplexPattern \n";
+ //   errs()<<"R is just subclass of ComplexPattern \n";
     assert(ResNo == 0 && "FIXME: ComplexPattern with multiple results?");
     if (NotRegisters)
       return TypeSetByHwMode(); // Unknown.
-    return TypeSetByHwMode(CDP.getComplexPattern(R).getValueType());
+
+    TypeSetByHwMode tmp_tsbhm; 
+     tmp_tsbhm = TypeSetByHwMode(CDP.getComplexPattern(R).getValueType());
+    if(tmp_tsbhm.getMachineValueType().SimpleTy==192){
+      errs()<<" the sub class of ComplexPattern  simpleTy = 192\n";
+    }
+    return tmp_tsbhm;
+    //return TypeSetByHwMode(CDP.getComplexPattern(R).getValueType());
   }
   if (R->isSubClassOf("PointerLikeRegClass")) {
-    errs()<<"R is subclass of PointerLikeRegClass \n";
+  //  errs()<<"R is subclass of PointerLikeRegClass \n";
     assert(ResNo == 0 && "Regclass can only have one result!");
     TypeSetByHwMode VTS(MVT::iPTR);
     TP.getInfer().expandOverloads(VTS);
+    if(VTS.getMachineValueType().SimpleTy==192){
+       errs()<<"the sub class is a PointerLikeRegClass simpleTy = 192\n";
+    }
     return VTS;
   }
 
@@ -2167,15 +2218,21 @@ static TypeSetByHwMode getImplicitType(Record *R, unsigned ResNo,
       R->getName() == "zero_reg" || R->getName() == "immAllOnesV" ||
       R->getName() == "immAllZerosV" || R->getName() == "undef_tied_input") {
     // Placeholder.
-    errs()<<"R is some other special \n";
+  //  errs()<<"R is some other special \n";
     return TypeSetByHwMode(); // Unknown.
   }
 
   if (R->isSubClassOf("Operand")) {
-    errs()<<"R is sub class of operand\n";
+  //  errs()<<"R is sub class of operand\n";
     const CodeGenHwModes &CGH = CDP.getTargetInfo().getHwModes();
     Record *T = R->getValueAsDef("Type");
-    return TypeSetByHwMode(getValueTypeByHwMode(T, CGH));
+     TypeSetByHwMode tmp_tsbhm; 
+     tmp_tsbhm = TypeSetByHwMode(getValueTypeByHwMode(T, CGH));
+    if(tmp_tsbhm.getMachineValueType().SimpleTy==192){
+      errs()<<" the sub class of ComplexPattern  simpleTy = 192\n";
+    }
+    return tmp_tsbhm;
+    //return TypeSetByHwMode(getValueTypeByHwMode(T, CGH));
   }
 
   TP.error("Unknown node flavor used in pattern: " + R->getName());
@@ -2311,6 +2368,7 @@ static void emitTooFewOperandsError(TreePattern &TP,
 /// this node and its children in the tree.  This returns true if it makes a
 /// change, false otherwise.  If a type contradiction is found, flag an error.
 bool TreePatternNode::ApplyTypeConstraints(TreePattern &TP, bool NotRegisters) {
+  //errs()<<"start to apply type constraints :"<<this<<" tp "<<&TP<<"\n";
   if (TP.hasError())
     return false;
 
@@ -2325,6 +2383,8 @@ bool TreePatternNode::ApplyTypeConstraints(TreePattern &TP, bool NotRegisters) {
                                                         NotRegisters,
                                                         !hasName(), TP));
          if(tmp_VTS.getMachineValueType().SimpleTy==192){
+         // errs()<<"target value : simplyfy is 192 :"<<DI->getDef()->getName()<<"\n";
+         //  errs()<<"code : "<<getName()<<"\n";
            //  errs() << "update node type to 192 at 2302\n";
         }                                                
         MadeChange |= UpdateNodeType(i, getImplicitType(DI->getDef(), i,
@@ -2336,6 +2396,7 @@ bool TreePatternNode::ApplyTypeConstraints(TreePattern &TP, bool NotRegisters) {
         
       return MadeChange;
     }
+
 
     if (IntInit *II = dyn_cast<IntInit>(getLeafValue())) {
       assert(Types.size() == 1 && "Invalid IntInit");
@@ -2370,6 +2431,25 @@ bool TreePatternNode::ApplyTypeConstraints(TreePattern &TP, bool NotRegisters) {
     }
 
     return false;
+  }
+  // special handling for set, which isn't really an SDNode.
+  if (getOperator()->getName() == "set") {
+    assert(getNumTypes() == 0 && "Set doesn't produce a value");
+    assert(getNumChildren() >= 2 && "Missing RHS of a set?");
+    unsigned NC = getNumChildren();
+
+    TreePatternNode *SetVal = getChild(NC-1);
+    bool MadeChange = SetVal->ApplyTypeConstraints(TP, NotRegisters);
+
+    for (unsigned i = 0; i < NC-1; ++i) {
+      TreePatternNode *Child = getChild(i);
+      MadeChange |= Child->ApplyTypeConstraints(TP, NotRegisters);
+
+      // Types of operands must match.
+      MadeChange |= Child->UpdateNodeType(0, SetVal->getExtType(i), TP);
+      MadeChange |= SetVal->UpdateNodeType(i, Child->getExtType(0), TP);
+    }
+    return MadeChange;
   }
 
   if (const CodeGenIntrinsic *Int = getIntrinsicInfo(CDP)) {
@@ -2593,6 +2673,7 @@ bool TreePatternNode::ApplyTypeConstraints(TreePattern &TP, bool NotRegisters) {
 
   // Node transforms always take one operand.
   if (getNumChildren() != 1) {
+    errs()<<"child num "<<getNumChildren()<<"\n";
     TP.error("Node transform '" + getOperator()->getName() +
              "' requires one operand!");
     return false;
@@ -2990,7 +3071,7 @@ static bool SimplifyTree(TreePatternNodePtr &N) {
 /// InferAllTypes - Infer/propagate as many types throughout the expression
 /// patterns as possible.  Return true if all types are inferred, false
 /// otherwise.  Flags an error if a type contradiction is found.
-bool TreePattern::
+const bool TreePattern::
 InferAllTypes(const StringMap<SmallVector<TreePatternNode*,1> > *InNamedTypes) {
   if (NamedNodes.empty())
     ComputeNamedNodes();
@@ -3691,7 +3772,8 @@ static bool checkOperandClass(CGIOperandList::OperandInfo &OI,
 }
 
 void CodeGenDAGPatterns::parseInstructionPattern(
-    CodeGenInstruction &CGI, ListInit *Pat, DAGInstMap &DAGInsts) {
+    CodeGenInstruction &CGI, ListInit *Pat, DAGInstMap &DAGInsts,
+    bool can_use_output) {
 
   assert(!DAGInsts.count(CGI.TheDef) && "Instruction already parsed!");
   //errs()<<"at start of  InstrunctionPattern"<<"\n";
@@ -3908,10 +3990,33 @@ void CodeGenDAGPatterns::parseInstructionPattern(
     ResultNodeOperands.push_back(std::move(OpNode));
   }
 
+
+  /*
+    modify this to make the code check the instInputs check all the operand include output
+   */
   if (!InstInputs.empty())
   {
+
+    if (!can_use_output) {
       I.error("Input operand $" + InstInputs.begin()->first +
-            " occurs in pattern but not in operands list!");
+               " occurs in pattern but not in operands list!");
+    } else {
+      // Sometimes we are fine with output operands; try to find one.
+      for (auto &InstInputCheckPair : InstInputs) {
+        bool FoundOutputOp = false;
+        for (unsigned i = 0; i != NumResults; ++i) {
+          const std::string &OpName = CGI.Operands[i].Name;
+          FoundOutputOp |= (OpName == InstInputCheckPair.first);
+        }
+
+        // If we couldn't find a matching output operand, the name is wrong.
+        if (!FoundOutputOp)
+          I.error("Operand $" + InstInputs.begin()->first +
+                   " occurs in pattern but not in operands list!");
+      }
+    }
+     // I.error("Input operand $" + InstInputs.begin()->first +
+         //   " occurs in pattern but not in operands list!");
   }
     
 

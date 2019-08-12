@@ -340,7 +340,9 @@ static void iterateOneModule(PDBFile &File, LinePrinter &P,
   if (ModiStream == kInvalidStreamIndex)
     return;
 
-  auto ModStreamData = File.createIndexedStream(ModiStream);
+  auto ModStreamData = MappedBlockStream::createIndexedStream(
+      File.getMsfLayout(), File.getMsfBuffer(), ModiStream,
+      File.getAllocator());
   ModuleDebugStreamRef ModStream(Modi, std::move(ModStreamData));
   if (auto EC = ModStream.reload()) {
     P.formatLine("Could not parse debug information.");

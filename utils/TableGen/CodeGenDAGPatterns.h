@@ -953,7 +953,7 @@ public:
   /// InferAllTypes - Infer/propagate as many types throughout the expression
   /// patterns as possible.  Return true if all types are inferred, false
   /// otherwise.  Bail out if a type contradiction is found.
-  bool InferAllTypes(
+  const bool InferAllTypes(
       const StringMap<SmallVector<TreePatternNode *, 1>> *NamedTypes = nullptr);
 
   /// error - If this is the first error in the current resolution step,
@@ -981,13 +981,23 @@ private:
 inline bool TreePatternNode::UpdateNodeType(unsigned ResNo,
                                             const TypeSetByHwMode &InTy,
                                             TreePattern &TP) {
+  bool target = false;
+  if(InTy.getMachineValueType().SimpleTy==192){
+    target = true;
+   // errs()<<"the SimpleTy seems to be a unkown one : "<<this<<" \n";
+  }
   TypeSetByHwMode VTS(InTy);
   if(VTS.getMachineValueType().SimpleTy==192){
     //errs() << "update node type to 192 at 986\n";
     //这个地方的update有问题
   }
   TP.getInfer().expandOverloads(VTS);
-  return TP.getInfer().MergeInTypeInfo(Types[ResNo], VTS);
+  bool tmp_result = TP.getInfer().MergeInTypeInfo(Types[ResNo], VTS);
+  if(target == true){
+   // errs()<<"the types was set to :"<<
+   // Types[ResNo].getMachineValueType().SimpleTy<<"\n";
+  }
+  return tmp_result;
 }
 
 inline bool TreePatternNode::UpdateNodeType(unsigned ResNo,
@@ -1276,7 +1286,7 @@ public:
   typedef std::map<Record*, DAGInstruction, LessRecordByID> DAGInstMap;
   void parseInstructionPattern(
       CodeGenInstruction &CGI, ListInit *Pattern,
-      DAGInstMap &DAGInsts);
+      DAGInstMap &DAGInsts,bool can_use_output = false);
 
   const DAGInstruction &getInstruction(Record *R) const {
     auto F = Instructions.find(R);

@@ -2375,28 +2375,28 @@ defm LDTRSW  : LoadUnprivileged<0b10, 0, 0b10, GPR64, "ldtrsw">;
 
 //---
 // (immediate pre-indexed)
-def LDRWpre : LoadPreIdx<0b10, 0, 0b01, GPR32, "ldr">;
-def LDRXpre : LoadPreIdx<0b11, 0, 0b01, GPR64, "ldr">;
-def LDRBpre : LoadPreIdx<0b00, 1, 0b01, FPR8,  "ldr">;
-def LDRHpre : LoadPreIdx<0b01, 1, 0b01, FPR16, "ldr">;
-def LDRSpre : LoadPreIdx<0b10, 1, 0b01, FPR32, "ldr">;
-def LDRDpre : LoadPreIdx<0b11, 1, 0b01, FPR64, "ldr">;
-def LDRQpre : LoadPreIdx<0b00, 1, 0b11, FPR128, "ldr">;
+def LDRWpre : LoadPreIdx<0b10, 0, 0b01, GPR32z, "ldr">;
+def LDRXpre : LoadPreIdx<0b11, 0, 0b01, GPR64z, "ldr">;
+def LDRBpre : LoadPreIdx<0b00, 1, 0b01, FPR8Op,  "ldr">;
+def LDRHpre : LoadPreIdx<0b01, 1, 0b01, FPR16Op, "ldr">;
+def LDRSpre : LoadPreIdx<0b10, 1, 0b01, FPR32Op, "ldr">;
+def LDRDpre : LoadPreIdx<0b11, 1, 0b01, FPR64Op, "ldr">;
+def LDRQpre : LoadPreIdx<0b00, 1, 0b11, FPR128Op, "ldr">;
 
 // load sign-extended half-word
-def LDRSHWpre : LoadPreIdx<0b01, 0, 0b11, GPR32, "ldrsh">;
-def LDRSHXpre : LoadPreIdx<0b01, 0, 0b10, GPR64, "ldrsh">;
+def LDRSHWpre : LoadPreIdx<0b01, 0, 0b11, GPR32z, "ldrsh">;
+def LDRSHXpre : LoadPreIdx<0b01, 0, 0b10, GPR64z, "ldrsh">;
 
 // load sign-extended byte
-def LDRSBWpre : LoadPreIdx<0b00, 0, 0b11, GPR32, "ldrsb">;
-def LDRSBXpre : LoadPreIdx<0b00, 0, 0b10, GPR64, "ldrsb">;
+def LDRSBWpre : LoadPreIdx<0b00, 0, 0b11, GPR32z, "ldrsb">;
+def LDRSBXpre : LoadPreIdx<0b00, 0, 0b10, GPR64z, "ldrsb">;
 
 // load zero-extended byte
-def LDRBBpre : LoadPreIdx<0b00, 0, 0b01, GPR32, "ldrb">;
-def LDRHHpre : LoadPreIdx<0b01, 0, 0b01, GPR32, "ldrh">;
+def LDRBBpre : LoadPreIdx<0b00, 0, 0b01, GPR32z, "ldrb">;
+def LDRHHpre : LoadPreIdx<0b01, 0, 0b01, GPR32z, "ldrh">;
 
 // load sign-extended word
-def LDRSWpre : LoadPreIdx<0b10, 0, 0b10, GPR64, "ldrsw">;
+def LDRSWpre : LoadPreIdx<0b10, 0, 0b10, GPR64z, "ldrsw">;
 
 //---
 // (immediate post-indexed)

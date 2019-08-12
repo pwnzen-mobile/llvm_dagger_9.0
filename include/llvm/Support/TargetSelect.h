@@ -41,7 +41,17 @@ extern "C" {
 #define LLVM_DISASSEMBLER(TargetName) \
   void LLVMInitialize##TargetName##Disassembler();
 #include "llvm/Config/Disassemblers.def"
+
+  // Declare all of the available target DC initialization functions.
+#define LLVM_TARGETDC(TargetName) \
+  void LLVMInitialize##TargetName##TargetDC();
+#include "llvm/Config/TargetDCs.def"
+
 }
+
+
+
+
 
 namespace llvm {
   /// InitializeAllTargetInfos - The main program should call this function if

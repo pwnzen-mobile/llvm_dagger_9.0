@@ -132,7 +132,8 @@ struct AutoIndent {
 
 template <class T>
 inline raw_ostream &operator<<(LinePrinter &Printer, const T &Item) {
-  return Printer.getStream() << Item;
+  Printer.getStream() << Item;
+  return Printer.getStream();
 }
 
 enum class PDB_ColorItem {

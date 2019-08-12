@@ -14,6 +14,9 @@ tablegen(LLVM AArch64GenSubtargetInfo.inc -gen-subtarget)
 tablegen(LLVM AArch64GenDisassemblerTables.inc -gen-disassembler)
 tablegen(LLVM AArch64GenSema.inc -gen-semantics)
 tablegen(LLVM AArch64GenExegesis.inc -gen-exegesis)
+tablegen(LLVM AArch64GenSystemOperands.inc -gen-searchable-tables)
+tablegen(LLVM AArch64GenRegisterBank.inc -gen-register-bank)
+tablegen(LLVM AArch64GenGlobalISel.inc -gen-global-isel)
 
 add_public_tablegen_target(AArch64CommonTableGen)
 
@@ -64,10 +67,9 @@ add_llvm_target(AArch64CodeGen
   intrinsics_gen
 )
 
+add_subdirectory(my_DC)
 add_subdirectory(TargetInfo)
 add_subdirectory(AsmParser)
 add_subdirectory(Disassembler)
 add_subdirectory(MCTargetDesc)
 add_subdirectory(Utils)
-add_subdirectory(InstPrinter)
-add_subdirectory(DC)
